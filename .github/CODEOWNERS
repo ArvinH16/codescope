@@ -1,0 +1,6 @@
+# CODEOWNERS file for CodeScope
+# This file defines who owns and reviews code in the repository
+# Learn more: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+* @arvinhakakian
