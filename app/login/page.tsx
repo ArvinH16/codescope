@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { GitBranch, Sparkles } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { signInWithGithub } from '@/scripts/signin'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -15,7 +14,7 @@ export default function LoginPage() {
     setIsLoading(true)
     // Simulate GitHub OAuth flow
     // TODO: Replace with actual OAuth flow
-    signInWithGithub()
+    window.location.href = 'api/auth/signin'
     router.push('/dashboard')
   }
 
