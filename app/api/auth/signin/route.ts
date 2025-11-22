@@ -3,19 +3,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
 
 export async function GET(request: NextRequest) {
-  console.log("Signin route accessed");
   const supabase = await createClient();
   const origin = new URL(request.url).origin;
-  const redirectTo = `${origin}/api/auth/callback`; // 👈 callback route
-
+  const redirectTo = `${origin}/api/auth/callback?prompt=login`; // 👈 callback route
+  
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'github',
     options: { redirectTo },
   });
-
   if (error || !data.url) {
     return NextResponse.redirect(`${origin}/api/auth/auth-code-error`);
   }
-
+  
   return NextResponse.redirect(data.url); // sends user to GitHub
 }

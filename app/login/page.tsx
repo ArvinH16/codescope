@@ -4,18 +4,15 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { GitBranch, Sparkles } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
   const handleGitHubLogin = () => {
-    setIsLoading(true)
+    setIsLoading(true);
     // Simulate GitHub OAuth flow
     // TODO: Replace with actual OAuth flow
-    window.location.href = 'api/auth/signin'
-    router.push('/dashboard')
+    window.location.href = 'api/auth/signin';
   }
 
   return (
