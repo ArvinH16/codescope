@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { GitBranch, Search, Star, GitFork, Clock, LogOut, TrendingUp } from "lucide-react"
 import SignOutButton from '@/components/ui/sign-out-button'
 import { useEffect } from "react"
-import { getStableGradient } from "@/lib/frontend/gradientColors"
+import { getStableGradient } from "@/utils/frontend/gradient-colors"
 
 
 
@@ -20,7 +20,7 @@ export default function RepositoriesPage() {
   const [repos, setRepos] = useState<any[]>([]);
   useEffect(() => {
     const fetchRepos = async () => {
-      const res = await fetch("/api/user_data"); // 👈 relative API route
+      const res = await fetch("/api/user-data"); // 👈 relative API route
       const data = await res.json(); // 👈 parse JSON
       setRepos(data); // 👈 store in state
     };
