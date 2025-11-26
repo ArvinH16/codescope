@@ -58,18 +58,6 @@ export default function RepositoriesPage() {
     router.push(`/dashboard/${repoName}`)
   }
 
-  const getActivityBadgeColor = (activity: string) => {
-    switch (activity) {
-      case "high":
-        return "bg-green-500/10 text-green-400 border-green-500/20"
-      case "medium":
-        return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
-      case "low":
-        return "bg-slate-500/10 text-slate-400 border-slate-500/20"
-      default:
-        return "bg-slate-500/10 text-slate-400 border-slate-500/20"
-    }
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -129,10 +117,6 @@ export default function RepositoriesPage() {
                   >
                     <GitBranch className="w-6 h-6 text-white" />
                   </div>
-                  <Badge variant="outline" className={getActivityBadgeColor(repo.activity)}>
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    {repo.activity}
-                  </Badge>
                 </div>
                 <CardTitle className="text-white group-hover:text-cyan-400 transition-colors">{repo.name}</CardTitle>
                 <CardDescription className="text-slate-400">{repo.description}</CardDescription>
