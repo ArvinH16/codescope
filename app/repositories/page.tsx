@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { GitBranch, Search, Star, GitFork, Clock, LogOut, TrendingUp } from "lucide-react"
 import SignOutButton from '@/components/ui/sign-out-button'
 import { useEffect } from "react"
+import { getStableGradient } from "@/lib/frontend/gradientColors"
 
 
 
@@ -19,7 +20,7 @@ export default function RepositoriesPage() {
   const [repos, setRepos] = useState<any[]>([]);
   useEffect(() => {
     const fetchRepos = async () => {
-      const res = await fetch("/api/auth/user_data/repositories"); // 👈 relative API route
+      const res = await fetch("/api/user_data"); // 👈 relative API route
       const data = await res.json(); // 👈 parse JSON
       setRepos(data); // 👈 store in state
     };
@@ -42,11 +43,16 @@ export default function RepositoriesPage() {
   </Card>
 ))
 
-  const filteredRepos = repos.filter(
+  const filteredRepos = repos
+  .filter(
     (repo) =>
       repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      repo.description.toLowerCase().includes(searchQuery.toLowerCase()),
+      (repo.description || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
+  .map((repo) => ({
+    ...repo,
+    color: getStableGradient(repo.name),
+  }));
 
   const handleSelectRepo = (repoName: string) => {
     router.push(`/dashboard/${repoName}`)
