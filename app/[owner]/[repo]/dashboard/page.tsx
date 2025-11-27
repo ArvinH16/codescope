@@ -66,7 +66,7 @@ export default function DashboardPage() {
     color: "from-blue-500 to-cyan-500",
   },
   {
-    label: "Weekly Commits",
+    label: "Last Week's Commits",
     value: weeklyCommits,
     icon: TrendingUp,
     color: "from-green-500 to-emerald-500",
