@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useEffect } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -12,7 +13,7 @@ import {
   GitBranch,
   GitCommit,
   Users,
-  Code2,
+  Star,
   Sparkles,
   TrendingUp,
   Activity,
@@ -27,18 +28,10 @@ import { ActivityChart } from "@/components/activity-chart"
 import { AIInsightsPanel } from "@/components/ai-insights-panel"
 import SignOutButton from '@/components/ui/sign-out-button'
 
-const mockStats = [
-  { label: "Total Commits", value: "2,847", icon: GitCommit, trend: "+12%", color: "from-blue-500 to-cyan-500" },
-  { label: "Active Contributors", value: "24", icon: Users, trend: "+3", color: "from-purple-500 to-pink-500" },
-  { label: "Files Changed", value: "1,432", icon: Code2, trend: "+8%", color: "from-orange-500 to-red-500" },
-  { label: "Code Quality", value: "94%", icon: TrendingUp, trend: "+2%", color: "from-green-500 to-emerald-500" },
-]
+
 
 export default function DashboardPage() {
-  const router = useRouter()
-  const params = useParams()
-  const repoName = params.repo as string
-
+  const [data, setData] = useState(null);
   const [chatInput, setChatInput] = useState("")
   const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([
     {
@@ -47,6 +40,50 @@ export default function DashboardPage() {
         "Hi! I'm your AI assistant. Ask me anything about your repository activity, code patterns, or contributor insights.",
     },
   ])
+  const params = useParams();
+  const router = useRouter()
+  const owner = params.owner as string;
+  const repo = params.repo as string;
+  useEffect (() => {
+    const fetchData = async () => {
+      const res = await fetch(`/api/repos/${owner}/${repo}/general-statistics`);
+      const data = await res.json();
+      setData(data);
+    };
+    fetchData();
+  }, [owner, repo]);
+
+  if (!data) {
+    return null;
+  }
+
+  const {totalCommits, weeklyCommits, contributors, starGazers} = data;
+  const stats = [
+  {
+    label: "Total Commits",
+    value: totalCommits,
+    icon: GitCommit,
+    color: "from-blue-500 to-cyan-500",
+  },
+  {
+    label: "Weekly Commits",
+    value: weeklyCommits,
+    icon: TrendingUp,
+    color: "from-green-500 to-emerald-500",
+  },
+  {
+    label: "Active Contributors",
+    value: contributors,
+    icon: Users,
+    color: "from-purple-500 to-pink-500",
+  },
+  {
+    label: "Stargazers",
+    value: starGazers,
+    icon: Star,
+    color: "from-yellow-400 to-orange-500",
+  },
+]
 
   const handleSendMessage = () => {
     if (!chatInput.trim()) return
@@ -64,9 +101,6 @@ export default function DashboardPage() {
     setChatInput("")
   }
 
-  const handleSignOut = () => {
-    router.push("/login")
-  }
 
   const handleBackToRepos = () => {
     router.push("/repositories")
@@ -91,7 +125,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-xl font-bold text-white">CodeScope</h1>
-              <p className="text-xs text-slate-400">{repoName}</p>
+              <p className="text-xs text-slate-400">{repo}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -112,7 +146,7 @@ export default function DashboardPage() {
       <div className="container mx-auto px-6 py-8">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {mockStats.map((stat) => (
+          {stats.map((stat) => (
             <Card key={stat.label} className="border-slate-800 bg-slate-900/50 backdrop-blur">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -121,9 +155,6 @@ export default function DashboardPage() {
                   >
                     <stat.icon className="w-6 h-6 text-white" />
                   </div>
-                  <Badge variant="secondary" className="bg-green-500/10 text-green-400 border-green-500/20">
-                    {stat.trend}
-                  </Badge>
                 </div>
                 <h3 className="text-2xl font-bold text-white mb-1">{stat.value}</h3>
                 <p className="text-sm text-slate-400">{stat.label}</p>

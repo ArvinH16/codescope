@@ -1,4 +1,4 @@
-export default function oneWeekAgo() {
+export function oneWeekAgo() {
     const now = new Date();
     now.setDate(now.getDate() - 7);
     return now.toISOString();
