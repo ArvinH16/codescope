@@ -1,48 +1,83 @@
 import OpenAI from 'openai';
 
-// 1. Initialize OpenAI with the key you just saved
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// 2. Define the shape of the file data based on your teammate's PDF [cite: 31]
 type GithubFile = {
-  filename: string; // [cite: 32]
-  status: string;   // "modified", "added", etc. [cite: 33]
-  patch?: string;   // The actual code changes 
+  filename: string;
+  status: string;
+  patch?: string;
 };
 
-// 3. The function that talks to the AI
 export async function summarizeCommit(commitMessage: string, files: GithubFile[]) {
+  const MAX_PATCH_LENGTH = 500;  // Per file
+  const MAX_FILES = 20;           // Total files
+  const MAX_TOTAL_LENGTH = 8000;  // Safety cap
   
-  // Build the prompt: "Here is the message, here are the files."
-  let prompt = `You are an expert developer. Summarize the following code changes into a clear, non-technical explanation.\n\n`;
+  let changes = "";
+  const filesToProcess = files.slice(0, MAX_FILES);
   
-  // Add the commit message [cite: 11]
-  prompt += `Commit Message: ${commitMessage}\n\n`;
-
-  // Loop through files and add their changes (patches)
-  files.forEach(file => {
+  for (const file of filesToProcess) {
     if (file.patch) {
-      prompt += `File: ${file.filename} (${file.status})\n`;
-      prompt += `Code Changes:\n${file.patch}\n\n`;
+      changes += `File: ${file.filename} (${file.status})\n`;
+      
+      const truncatedPatch = file.patch.length > MAX_PATCH_LENGTH
+        ? file.patch.substring(0, MAX_PATCH_LENGTH) + '\n... (patch truncated)'
+        : file.patch;
+      
+      changes += `Changes:\n${truncatedPatch}\n\n`;
     }
-  });
+  }
+  
+  // Add note if files were skipped
+  if (files.length > MAX_FILES) {
+    changes += `\n(Note: ${files.length - MAX_FILES} additional files were modified)\n`;
+  }
+  
+  // Final safety truncation
+  if (changes.length > MAX_TOTAL_LENGTH) {
+    changes = changes.substring(0, MAX_TOTAL_LENGTH) + "\n...[Truncated for length]...";
+  }
+  
+  const prompt = `You are an expert developer analyzing a Git commit.
+
+**Commit Message:** ${commitMessage}
+
+**Files Changed:**
+${changes}
+
+**Task:** Provide a concise summary (under 150 words) that explains:
+1. What was changed
+2. Why these changes were likely made
+3. Key files affected`;
 
   try {
-    // Send the prompt to OpenAI
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Fast and cheap model
+      model: "gpt-4o-mini",
       messages: [
-        { role: "system", content: "You are a helpful coding assistant." },
+        { role: "system", content: "You are a helpful coding assistant that explains code changes clearly." },
         { role: "user", content: prompt }
       ],
+      max_tokens: 300,
+      temperature: 0.4, // Slightly lower for more consistent summaries
     });
-
-    // Return the AI's answer
-    return completion.choices[0].message.content;
+    
+    const content = completion.choices[0]?.message?.content;
+    
+    if (!content) {
+      throw new Error("OpenAI returned an empty response");
+    }
+    
+    return content;
+    
   } catch (error) {
-    console.error("Error connecting to OpenAI:", error);
-    return "Failed to generate summary.";
+    console.error("OpenAI API Error:", error);
+    
+    if (error instanceof Error) {
+      throw new Error(`Failed to generate summary: ${error.message}`);
+    }
+    
+    throw new Error("Failed to generate summary due to an unknown error");
   }
 }
