@@ -4,6 +4,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 type SummaryData = {
   user_id: string;
   repo_name: string;
+  commit_sha: string;
   summary: string;
 };
 
@@ -17,6 +18,7 @@ export async function saveSummaryToDB(supabase: SupabaseClient, data: SummaryDat
       {
         user_id: data.user_id,
         repo_name: data.repo_name,
+        commit_sha: data.commit_sha,
         summary: data.summary,
         // The created_at field is automatically set by the database using 'now()'
       },

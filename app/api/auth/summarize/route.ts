@@ -45,6 +45,7 @@ export async function POST(request: Request) {
     await saveSummaryToDB(supabase, {
       user_id: user.id,
       repo_name: `${owner}/${repo}`,
+      commit_sha: sha, // <-- FIX: Added commit_sha field
       summary: summaryText,
     });
 
