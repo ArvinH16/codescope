@@ -11,40 +11,24 @@ type GithubFile = {
 };
 
 export async function summarizeCommit(commitMessage: string, files: GithubFile[]) {
-  const MAX_PATCH_LENGTH = 500;  // Per file
-  const MAX_FILES = 20;           // Total files
-  const MAX_TOTAL_LENGTH = 8000;  // Safety cap
+  
+  // NOTE: REMOVED ALL MAX_LENGTH AND MAX_FILES CONSTANTS AND LOGIC
   
   let changes = "";
-  const filesToProcess = files.slice(0, MAX_FILES);
   
-  for (const file of filesToProcess) {
+  // Loop over ALL files and include the entire patch string
+  for (const file of files) {
     if (file.patch) {
       changes += `File: ${file.filename} (${file.status})\n`;
-      
-      const truncatedPatch = file.patch.length > MAX_PATCH_LENGTH
-        ? file.patch.substring(0, MAX_PATCH_LENGTH) + '\n... (patch truncated)'
-        : file.patch;
-      
-      changes += `Changes:\n${truncatedPatch}\n\n`;
+      changes += `Changes:\n${file.patch}\n\n`; // Sending the full, untruncated patch
     }
   }
-  
-  // Add note if files were skipped
-  if (files.length > MAX_FILES) {
-    changes += `\n(Note: ${files.length - MAX_FILES} additional files were modified)\n`;
-  }
-  
-  // Final safety truncation
-  if (changes.length > MAX_TOTAL_LENGTH) {
-    changes = changes.substring(0, MAX_TOTAL_LENGTH) + "\n...[Truncated for length]...";
-  }
-  
+
   const prompt = `You are an expert developer analyzing a Git commit.
 
 **Commit Message:** ${commitMessage}
 
-**Files Changed:**
+**Files Changed (Full Content):**
 ${changes}
 
 **Task:** Provide a concise summary (under 150 words) that explains:
@@ -60,7 +44,7 @@ ${changes}
         { role: "user", content: prompt }
       ],
       max_tokens: 300,
-      temperature: 0.4, // Slightly lower for more consistent summaries
+      temperature: 0.4,
     });
     
     const content = completion.choices[0]?.message?.content;
