@@ -8,7 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { GitBranch, Search, Star, GitFork, Clock, LogOut, TrendingUp } from "lucide-react"
 import SignOutButton from '@/components/ui/sign-out-button'
 import { useEffect } from "react"
-import { getStableGradient } from "@/lib/frontend/gradientColors"
+import { getStableGradient } from "@/utils/frontend/gradient-colors"
+import { findOwner } from "@/utils/frontend/find-owner/find-owner"
 
 
 
@@ -18,7 +19,7 @@ export default function RepositoriesPage() {
   const [repos, setRepos] = useState<any[]>([]);
   useEffect(() => {
     const fetchRepos = async () => {
-      const res = await fetch("/api/user_data"); // 👈 relative API route
+      const res = await fetch("/api/user-data/repositories"); // 👈 relative API route
       const data = await res.json(); // 👈 parse JSON
       setRepos(data); // 👈 store in state
     };
@@ -27,7 +28,7 @@ export default function RepositoriesPage() {
   }, []);
 
   repos.map((repo) => (
-  <Card key={repo.id} onClick={() => handleSelectRepo(repo.name)}>
+  <Card key={repo.id} onClick={() => handleSelectRepo(findOwner(repo.git_url), repo.name)}>
     <CardHeader>
       <CardTitle>{repo.name}</CardTitle>
       <CardDescription>{repo.description}</CardDescription>
@@ -52,9 +53,10 @@ export default function RepositoriesPage() {
     color: getStableGradient(repo.name),
   }));
 
-  const handleSelectRepo = (repoName: string) => {
-    router.push(`/dashboard/${repoName}`)
+  const handleSelectRepo = (owner: string, repoName: string) => {
+    router.push(`/${owner}/${repoName}/dashboard`);
   }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -105,7 +107,7 @@ export default function RepositoriesPage() {
             <Card
               key={repo.id}
               className="border-slate-800 bg-slate-900/50 backdrop-blur hover:bg-slate-900/80 transition-all cursor-pointer group"
-              onClick={() => handleSelectRepo(repo.name)}
+              onClick={() => handleSelectRepo(findOwner(repo.git_url), repo.name)}
             >
               <CardHeader>
                 <div className="flex items-start justify-between mb-3">
