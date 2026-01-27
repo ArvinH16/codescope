@@ -44,7 +44,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const owner = params.owner as string;
   const repo = params.repo as string;
-  useEffect (() => {
+  useEffect(() => {
     const fetchData = async () => {
       const res = await fetch(`/api/repos/${owner}/${repo}/general-statistics`);
       const data = await res.json();
@@ -57,33 +57,33 @@ export default function DashboardPage() {
     return null;
   }
 
-  const {totalCommits, weeklyCommits, contributors, starGazers} = data;
+  const { totalCommits, weeklyCommits, contributors, starGazers } = data;
   const stats = [
-  {
-    label: "Total Commits",
-    value: totalCommits,
-    icon: GitCommit,
-    color: "from-blue-500 to-cyan-500",
-  },
-  {
-    label: "Last Week's Commits",
-    value: weeklyCommits,
-    icon: TrendingUp,
-    color: "from-green-500 to-emerald-500",
-  },
-  {
-    label: "Active Contributors",
-    value: contributors,
-    icon: Users,
-    color: "from-purple-500 to-pink-500",
-  },
-  {
-    label: "Stargazers",
-    value: starGazers,
-    icon: Star,
-    color: "from-yellow-400 to-orange-500",
-  },
-]
+    {
+      label: "Total Commits",
+      value: totalCommits,
+      icon: GitCommit,
+      color: "from-blue-500 to-cyan-500",
+    },
+    {
+      label: "Last Week's Commits",
+      value: weeklyCommits,
+      icon: TrendingUp,
+      color: "from-green-500 to-emerald-500",
+    },
+    {
+      label: "Active Contributors",
+      value: contributors,
+      icon: Users,
+      color: "from-purple-500 to-pink-500",
+    },
+    {
+      label: "Stargazers",
+      value: starGazers,
+      icon: Star,
+      color: "from-yellow-400 to-orange-500",
+    },
+  ]
 
   const handleSendMessage = () => {
     if (!chatInput.trim()) return
@@ -179,7 +179,7 @@ export default function DashboardPage() {
               </TabsContent>
 
               <TabsContent value="contributors" className="mt-4">
-                <ContributorStats />
+                <ContributorStats owner={owner} repo={repo} />
               </TabsContent>
 
               <TabsContent value="modules" className="mt-4">
@@ -216,9 +216,8 @@ export default function DashboardPage() {
                           </div>
                         )}
                         <div
-                          className={`rounded-lg p-3 max-w-[80%] text-sm ${
-                            msg.role === "user" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-200"
-                          }`}
+                          className={`rounded-lg p-3 max-w-[80%] text-sm ${msg.role === "user" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-200"
+                            }`}
                         >
                           {msg.content}
                         </div>
