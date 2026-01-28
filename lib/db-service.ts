@@ -11,6 +11,7 @@ type SummaryData = {
 /**
  * Saves the AI-generated summary into the secure 'summaries' table.
  * Also updates the user's last_summarized_time in the profiles table.
+ * TODO: Make this function require authentication to prevent misues
  */
 export async function saveSummaryToDB(supabase: SupabaseClient, data: SummaryData) {
   // 1. Insert the summary into the summaries table

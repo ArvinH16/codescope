@@ -56,7 +56,7 @@ export default function DashboardPage() {
   if (!data) {
     return null;
   }
-
+  fetch(`/api/repos/${owner}/${repo}/commit-summary`);
   const {totalCommits, weeklyCommits, contributors, starGazers} = data;
   const stats = [
   {

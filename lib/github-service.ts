@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-
+import type { SessionResult } from '@/utils/types/supabase';
+import { Session } from 'inspector';
+import { oneWeekAgo } from '@/utils/frontend/time/one-week-ago';
 // Define the shape of the data we want from GitHub
 interface CommitFile {
   filename: string;
@@ -8,36 +10,30 @@ interface CommitFile {
 }
 
 export class GithubService {
-  private token: string;
+  private provider_token: string;
+  private owner: string;
+  private repo: string;
 
-  constructor(token: string) {
-    this.token = token;
-  }
-
-  /**
-   * 1. Fetches the user's token from the secure 'profiles' table
-   */
-  static async forUser(supabaseClient: any, userId: string) {
-    const { data, error } = await supabaseClient
-      .from('profiles')
-      .select('github_access_token')
-      .eq('id', userId)
-      .single();
-
-    if (error || !data?.github_access_token) {
-      throw new Error("User has no GitHub token connected");
+  // The session is what you get from
+  // supbase.auth.getSession()
+  constructor(session : SessionResult, owner: string, repo: string) {
+    const token = session.data.session?.provider_token;
+    if (!token) {
+    throw new Error("Missing GitHub token");
     }
-
-    return new GithubService(data.github_access_token);
+    this.provider_token = token;
+    this.owner = owner;
+    this.repo = repo;
   }
 
   /**
    * 2. Helper to make authenticated requests to GitHub
+   * Returns the json object 
    */
-  private async fetchGithub(endpoint: string) {
+  public async fetchGithub(endpoint: string) {
     const response = await fetch(`https://api.github.com${endpoint}`, {
       headers: {
-        Authorization: `Bearer ${this.token}`,
+        Authorization: `Bearer ${this.provider_token}`,
         Accept: 'application/vnd.github.v3+json',
       },
     });
@@ -49,21 +45,18 @@ export class GithubService {
     return response.json();
   }
 
+  // Fetches and returns all commits made to the main branch in the last week
+  public async lastWeekCommits() {
+    const oneWeekAgoISO = oneWeekAgo();
+      // const lastWeekCommitsRes = githubService.fetchGithub(`${owner}/${repo}/commits?since=${oneWeekAgoISO}`);
+      // THIS IS FOR TESTING:
+      return this.fetchGithub(`/repos/${this.owner}/${this.repo}/commits?per_page=1`);
+  }
   /**
    * 3. Get the detailed files/changes for a specific commit
    */
-  async getCommitDiff(owner: string, repo: string, sha: string) {
-    const data = await this.fetchGithub(`/repos/${owner}/${repo}/commits/${sha}`);
-    
-    const files: CommitFile[] = data.files.map((f: any) => ({
-      filename: f.filename,
-      status: f.status,
-      patch: f.patch,
-    }));
-
-    return {
-      message: data.commit.message,
-      files: files
-    };
+  public async getCommitDiff(sha: string) {
+    const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/commits/${sha}`)
+    return data.files as CommitFile[];
   }
 }

@@ -1,0 +1,14 @@
+import type { Session, AuthError } from "@supabase/supabase-js";
+export type SessionResult =
+  | {
+      data: { session: Session };
+      error: null;
+    }
+  | {
+      data: { session: null };
+      error: AuthError;
+    }
+  | {
+      data: { session: null };
+      error: null;
+    };

@@ -1,14 +1,10 @@
 import OpenAI from 'openai';
+import { GithubFile } from '@/utils/types/github';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-type GithubFile = {
-  filename: string;
-  status: string;
-  patch?: string;
-};
 
 export async function summarizeCommit(commitMessage: string, files: GithubFile[]) {
   
