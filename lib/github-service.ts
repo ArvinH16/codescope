@@ -59,4 +59,9 @@ export class GithubService {
     const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/commits/${sha}`)
     return data.files as CommitFile[];
   }
+
+  public async getTreeBranch() {
+      const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/main?recursive=1`)
+      return
+    }
 }

@@ -31,3 +31,21 @@ export type CommitFile = {
   status: string;
   patch?: string;
 };
+
+export type GitNode = {
+   path: string;
+  type: "blob" | "tree";
+  sha: string;
+  size?: number;
+}
+
+export type RepoNode = {
+  path: string;
+  name: string;
+  parent_path: string | null;
+  type: "file" | "directory";
+  sha: string;
+  size: number | null;
+  depth: number;
+
+}
