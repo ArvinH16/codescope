@@ -49,6 +49,7 @@ export default function DashboardPage() {
       const res = await fetch(`/api/repos/${owner}/${repo}/general-statistics`);
       const data = await res.json();
       setData(data);
+      fetch(`/api/repos/${owner}/${repo}/git-tree`);
     };
     fetchData();
   }, [owner, repo]);
@@ -56,7 +57,6 @@ export default function DashboardPage() {
   if (!data) {
     return null;
   }
-  fetch(`/api/repos/${owner}/${repo}/commit-summary`);
   const {totalCommits, weeklyCommits, contributors, starGazers} = data;
   const stats = [
     {

@@ -33,7 +33,8 @@ export type CommitFile = {
 };
 
 export type GitNode = {
-   path: string;
+  path: string;
+  mode: string;
   type: "blob" | "tree";
   sha: string;
   size?: number;
