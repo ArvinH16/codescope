@@ -9,102 +9,56 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { GitBranch, Search, Star, GitFork, Clock, LogOut, TrendingUp } from "lucide-react"
 import SignOutButton from '@/components/ui/sign-out-button'
+import { useEffect } from "react"
+import { getStableGradient } from "@/utils/frontend/gradient-colors"
+import { findOwner } from "@/utils/frontend/find-owner/find-owner"
 
-const mockRepositories = [
-  {
-    id: 1,
-    name: "main-repository",
-    description: "Primary application repository with React and Next.js",
-    language: "TypeScript",
-    stars: 234,
-    forks: 45,
-    lastUpdated: "2 hours ago",
-    activity: "high",
-    color: "from-blue-500 to-cyan-500",
-  },
-  {
-    id: 2,
-    name: "api-backend",
-    description: "RESTful API backend service built with Node.js",
-    language: "JavaScript",
-    stars: 156,
-    forks: 32,
-    lastUpdated: "5 hours ago",
-    activity: "medium",
-    color: "from-yellow-500 to-orange-500",
-  },
-  {
-    id: 3,
-    name: "mobile-app",
-    description: "Cross-platform mobile application",
-    language: "Dart",
-    stars: 89,
-    forks: 18,
-    lastUpdated: "1 day ago",
-    activity: "medium",
-    color: "from-purple-500 to-pink-500",
-  },
-  {
-    id: 4,
-    name: "design-system",
-    description: "Shared UI components and design tokens",
-    language: "TypeScript",
-    stars: 67,
-    forks: 12,
-    lastUpdated: "3 days ago",
-    activity: "low",
-    color: "from-green-500 to-emerald-500",
-  },
-  {
-    id: 5,
-    name: "data-pipeline",
-    description: "ETL pipeline for data processing and analytics",
-    language: "Python",
-    stars: 198,
-    forks: 56,
-    lastUpdated: "4 hours ago",
-    activity: "high",
-    color: "from-red-500 to-rose-500",
-  },
-  {
-    id: 6,
-    name: "docs-site",
-    description: "Documentation website and guides",
-    language: "MDX",
-    stars: 45,
-    forks: 8,
-    lastUpdated: "1 week ago",
-    activity: "low",
-    color: "from-indigo-500 to-blue-500",
-  },
-]
+
 
 export default function RepositoriesPage() {
-  const router = useRouter()
-  const [searchQuery, setSearchQuery] = useState("")
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [repos, setRepos] = useState<any[]>([]);
+  useEffect(() => {
+    const fetchRepos = async () => {
+      const res = await fetch("/api/user-data/repositories"); // 👈 relative API route
+      const data = await res.json(); // 👈 parse JSON
+      setRepos(data); // 👈 store in state
+    };
 
-  const filteredRepos = mockRepositories.filter(
+    fetchRepos();
+  }, []);
+
+  repos.map((repo) => (
+  <Card key={repo.id} onClick={() => handleSelectRepo(findOwner(repo.git_url), repo.name)}>
+    <CardHeader>
+      <CardTitle>{repo.name}</CardTitle>
+      <CardDescription>{repo.description}</CardDescription>
+    </CardHeader>
+    <CardContent>
+      <p>{repo.language}</p>
+      <p>⭐ {repo.stargazers_count}</p>
+      <p>🍴 {repo.forks_count}</p>
+      <p>Updated {new Date(repo.updated_at).toLocaleString()}</p>
+    </CardContent>
+  </Card>
+))
+
+  const filteredRepos = repos
+  .filter(
     (repo) =>
       repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      repo.description.toLowerCase().includes(searchQuery.toLowerCase()),
+      (repo.description || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
+  .map((repo) => ({
+    ...repo,
+    color: getStableGradient(repo.name),
+  }));
 
-  const handleSelectRepo = (repoName: string) => {
-    router.push(`/dashboard/${repoName}`)
+  const handleSelectRepo = (owner: string, repoName: string) => {
+    router.push(`/${owner}/${repoName}/dashboard`);
   }
 
-  const getActivityBadgeColor = (activity: string) => {
-    switch (activity) {
-      case "high":
-        return "bg-green-500/10 text-green-400 border-green-500/20"
-      case "medium":
-        return "bg-yellow-500/10 text-yellow-400 border-yellow-500/20"
-      case "low":
-        return "bg-slate-500/10 text-slate-400 border-slate-500/20"
-      default:
-        return "bg-slate-500/10 text-slate-400 border-slate-500/20"
-    }
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -155,7 +109,7 @@ export default function RepositoriesPage() {
             <Card
               key={repo.id}
               className="border-slate-800 bg-slate-900/50 backdrop-blur hover:bg-slate-900/80 transition-all cursor-pointer group"
-              onClick={() => handleSelectRepo(repo.name)}
+              onClick={() => handleSelectRepo(findOwner(repo.git_url), repo.name)}
             >
               <CardHeader>
                 <div className="flex items-start justify-between mb-3">
@@ -164,10 +118,6 @@ export default function RepositoriesPage() {
                   >
                     <GitBranch className="w-6 h-6 text-white" />
                   </div>
-                  <Badge variant="outline" className={getActivityBadgeColor(repo.activity)}>
-                    <TrendingUp className="w-3 h-3 mr-1" />
-                    {repo.activity}
-                  </Badge>
                 </div>
                 <CardTitle className="text-white group-hover:text-cyan-400 transition-colors">{repo.name}</CardTitle>
                 <CardDescription className="text-slate-400">{repo.description}</CardDescription>
