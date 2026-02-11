@@ -9,7 +9,8 @@ interface CommitFile {
   status: string;
   patch?: string; // The code diff the AI needs
 }
-
+// Pass information for a repository and then this object works as a way to interact with the 
+// GitHub API in an authenticated way (using the provider token from Supabase) easily
 export class GithubService {
   private provider_token: string;
   private owner: string;
@@ -61,6 +62,10 @@ export class GithubService {
     return data.files as CommitFile[];
   }
   
+  public async getFileContent(branch: string, filePath: string) {
+    const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/contents/${filePath}?ref=${branch}`);
+    return data;
+  }
   /*
     * 4. Get the tree structure of the repository (for context)
       * This is useful for the AI to understand the file structure and where changes are happening
