@@ -1,3 +1,4 @@
+import {author} from "./author";
 export type GitHubCommit = {
   sha: string;
   commit: {
@@ -48,5 +49,15 @@ export type RepoNode = {
   sha: string;
   size: number | null;
   depth: number;
+}
 
+export type BlameRange = {
+  startingline: number;
+  endlingline: number;
+  age: number;
+  commit: {
+    message: string;
+    committedDate: string;
+    author: author;
+  }
 }

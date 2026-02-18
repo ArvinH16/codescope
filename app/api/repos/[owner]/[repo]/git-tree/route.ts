@@ -1,4 +1,4 @@
-import { GithubService } from "@/lib/github-service";
+import { GithubService } from "@/lib/github/github-service";
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ own
     const session = await supabase.auth.getSession();
     const githubService = new GithubService(session, owner, repo);
     const tree = await githubService.getMainBranch();
-    const exampleBlames = await githubService.getBlame("main", "lib/ai.summarizer.ts");
+    const exampleBlames = await githubService.getBlame("main", "lib/ai-summarizer.ts");
     console.log(exampleBlames);
     return NextResponse.json(tree);
 }

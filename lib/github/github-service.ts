@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { SessionResult } from '@/utils/types/supabase';
 import { Session } from 'inspector';
 import { oneWeekAgo } from '@/utils/frontend/time/one-week-ago';
-import { GitNode } from '@/utils/types/github';
+import { BlameRange, GitNode } from '@/utils/types/github';
 // Define the shape of the data we want from GitHub
 interface CommitFile {
   filename: string;
@@ -144,7 +144,7 @@ export class GithubService {
       }
 
       const blameResult = await blameResponse.json();
-      return blameResult.data.repositoryOwner.repository.object.blame.ranges[0].commit;
+      return blameResult.data.repositoryOwner.repository.object.blame.ranges as BlameRange[];
 
   }
 

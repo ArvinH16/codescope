@@ -2,7 +2,7 @@
 
 // Import all your services
 import { summarizeCommit } from '@/lib/ai-summarizer'; 
-import { GithubService } from '@/lib/github-service';   
+import { GithubService } from '@/lib/github/github-service';   
 import { saveSummaryToDB } from '@/lib/db-service';     
 import { create } from 'domain';
 
