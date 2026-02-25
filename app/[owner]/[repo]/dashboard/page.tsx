@@ -171,10 +171,10 @@ export default function DashboardPage() {
           <div className="lg:col-span-2 space-y-6">
             <Tabs defaultValue="commits" className="w-full">
               <TabsList className="bg-slate-900/50 border border-slate-800">
-                <TabsTrigger value="commits">Commit Timeline</TabsTrigger>
-                <TabsTrigger value="contributors">Contributors</TabsTrigger>
-                <TabsTrigger value="modules">Modules</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
+                <TabsTrigger value="commits" className="data-[state=inactive]:text-white">Commit Timeline</TabsTrigger>
+                <TabsTrigger value="contributors" className="data-[state=inactive]:text-white">Contributors</TabsTrigger>
+                <TabsTrigger value="modules" className="data-[state=inactive]:text-white">Modules</TabsTrigger>
+                <TabsTrigger value="activity" className="data-[state=inactive]:text-white">Activity</TabsTrigger>
               </TabsList>
 
               <TabsContent value="commits" className="mt-4">
