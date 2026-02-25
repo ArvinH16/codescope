@@ -73,7 +73,7 @@ export class GithubService {
   */
   public async getMainBranch() {
       const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/main?recursive=1`)
-      return data as GitNode[];
+      return data.tree as GitNode[];
     }
   
   /*
@@ -83,7 +83,7 @@ export class GithubService {
   */
     public async getTreeBranch(branch : string) {
       const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/${branch}?recursive=1`)
-      return data as GitNode[];
+      return data.tree as GitNode[];
     }
     
     public async getBlame(branch: string, filePath: string) {
@@ -92,10 +92,7 @@ export class GithubService {
       //
       const typename = await this.getFileType(branch, filePath);
       if (typename !== "Blob") {
-        return {
-          type: typename,
-          blame: null,
-        };
+        return [] as BlameRange[];
       }
 
       //
@@ -112,6 +109,7 @@ export class GithubService {
                   endingLine
                   age
                   commit {
+                    oid
                     message
                     committedDate
                     author {
@@ -187,5 +185,9 @@ export class GithubService {
     const typeResult = await typeResponse.json();
     const typename = typeResult.data.repository.object?.__typename;
     return typename;
+  }
+
+  public getRepo() {
+    return this.repo;
   }
 }

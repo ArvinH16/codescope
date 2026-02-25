@@ -49,7 +49,10 @@ export default function DashboardPage() {
       const res = await fetch(`/api/repos/${owner}/${repo}/general-statistics`);
       const data = await res.json();
       setData(data);
-      fetch(`/api/repos/${owner}/${repo}/git-tree`);
+      await fetch(`/api/repos/${owner}/${repo}/test`, {
+        method: "POST",
+        credentials: "include",
+      });
     };
     fetchData();
   }, [owner, repo]);

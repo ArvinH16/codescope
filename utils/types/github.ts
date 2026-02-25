@@ -52,10 +52,11 @@ export type RepoNode = {
 }
 
 export type BlameRange = {
-  startingline: number;
-  endlingline: number;
+  startingLine: number;
+  endingLine: number;
   age: number;
   commit: {
+    oid: string;
     message: string;
     committedDate: string;
     author: author;

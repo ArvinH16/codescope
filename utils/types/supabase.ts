@@ -12,3 +12,4 @@ export type SessionResult =
       data: { session: null };
       error: null;
     };
+
