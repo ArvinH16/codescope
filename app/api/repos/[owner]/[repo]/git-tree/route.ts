@@ -13,7 +13,5 @@ export async function GET(request: NextRequest, context: { params: Promise<{ own
     const session = await supabase.auth.getSession();
     const githubService = new GithubService(session, owner, repo);
     const tree = await githubService.getMainBranch();
-    const exampleBlames = await githubService.getBlame("main", "lib/ai-summarizer.ts");
-    console.log(exampleBlames);
     return NextResponse.json(tree);
 }

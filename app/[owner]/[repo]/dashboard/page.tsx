@@ -49,10 +49,6 @@ export default function DashboardPage() {
       const res = await fetch(`/api/repos/${owner}/${repo}/general-statistics`);
       const data = await res.json();
       setData(data);
-      await fetch(`/api/repos/${owner}/${repo}/test`, {
-        method: "POST",
-        credentials: "include",
-      });
     };
     fetchData();
   }, [owner, repo]);
@@ -88,6 +84,13 @@ export default function DashboardPage() {
     },
   ]
 
+  const processRepo = (owner: string, repo: string) => {
+    fetch(`/api/repos/${owner}/${repo}/process-repo`, {
+      method: "POST",
+      credentials: "include"
+      }
+    )
+  }
   const handleSendMessage = () => {
     if (!chatInput.trim()) return
 
@@ -197,7 +200,15 @@ export default function DashboardPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <AIInsightsPanel />
+            <Button
+              onClick={() => processRepo(owner, repo)}
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              disableOnClick
+              disabledText="Processing..."
+            >
+              Process Repository
+            </Button>
+
 
             {/* AI Chat Assistant */}
             <Card className="border-slate-800 bg-slate-900/50 backdrop-blur">

@@ -5,12 +5,15 @@ import { GitHubRepoFile } from "./github-repo-file";
 // Generally attempt to solve large repos
 export class GitBlamesProcess {
     private githubService: GithubService;
+    private gitId: string;
 
     constructor(githubService: GithubService) {
         this.githubService = githubService;
+        this.gitId = "";
     }
 
     public async processRepository() {
+        this.gitId = await this.githubService.getRepoId();
         const tree = await this.githubService.getMainBranch();
         let processedRepo : GitHubRepoFile[] = []; 
         let children : GitHubRepoFile[] = []; 
@@ -31,7 +34,10 @@ export class GitBlamesProcess {
             authorContributions = this.mergeAuthorContributions(authorContributions, child.getAuthors());
         }
 
-        const repoFile: GitHubRepoFile = new GitHubRepoFile(this.githubService.getRepo(),
+        const repoFile: GitHubRepoFile = new GitHubRepoFile(
+            this.githubService.getRepo(),
+            this.githubService.getOwner(),
+            this.gitId,
             ".",
             "",
             authorContributions,
@@ -52,7 +58,10 @@ export class GitBlamesProcess {
             const fileContent = await this.githubService.getFileContent("main", file.path);
             const decoded = Buffer.from(fileContent.content, "base64").toString("utf8");
             const {blamedFile, authorContributions, totalLines} = await this.produceBlame(decoded, blames);
-            const repoFile: GitHubRepoFile = new GitHubRepoFile(this.githubService.getRepo(),
+            const repoFile: GitHubRepoFile = new GitHubRepoFile(
+                this.githubService.getRepo(),
+                this.githubService.getOwner(),
+                this.gitId,
                 file.path,
                 blamedFile,
                 authorContributions,
@@ -83,7 +92,10 @@ export class GitBlamesProcess {
                 authorContributions = this.mergeAuthorContributions(authorContributions, child.getAuthors());
             }
 
-            const repoFile: GitHubRepoFile = new GitHubRepoFile(this.githubService.getRepo(),
+            const repoFile: GitHubRepoFile = new GitHubRepoFile(
+                this.githubService.getRepo(),
+                this.githubService.getOwner(),
+                this.gitId,
                 path,
                 "",
                 authorContributions,
@@ -99,7 +111,7 @@ export class GitBlamesProcess {
     // Line format is as follow:
     // <commit sha> (<author name> - <committed date>) <line number>) <line content>
     // Then returns this new string
-    public async produceBlame(fileContent : string, blames : BlameRange[]) {
+    private async produceBlame(fileContent : string, blames : BlameRange[]) {
         if (blames == null || blames.length === 0) {
             return this.nullBlame(fileContent);
         }
@@ -135,7 +147,8 @@ export class GitBlamesProcess {
                 blamedFile += `No blame info available ${line}) ${lineContent}\n`;
             }
         }
-        return { blamedFile : blamedFile, 
+        const cleanBlamedFile = blamedFile.replace(/\u0000/g, "\\0");
+        return { blamedFile : cleanBlamedFile, 
                 authorContributions : authorContributions, 
                 totalLines : lines.length, };
 
