@@ -1,5 +1,5 @@
 // RECEIVE: file, what chatbot option was selected
-// TODO: sort out UI, this will only include logic for once a prompt has been selected by the chatbot and 
+// TODO: sort out UI, this page will only include logic for once a prompt has been selected by the chatbot and 
 //       the file is given
 // TODO: link selected prompt and receieved file
 
@@ -45,7 +45,7 @@
 // Pull all blame_data for the file
 // Using AI API, use the following prompt:
 
-//"You are an expert software architect. I am providing you with the complete git blame history for the file located at: [file_path].
+// "You are an expert software architect. I am providing you with the complete git blame history for the file located at: [file_path].
 
 // YOUR TASK:
 // Analyze the logic, code patterns, and the evolution of the authors in this dataset. In three concise sentences, provide a technical summary of exactly what this file's primary architectural responsibility is.
@@ -53,4 +53,4 @@
 // THE DATASET:
 // [full_blame_data_array]
 
-// Return AI response to user
+// Return AI response to user 
