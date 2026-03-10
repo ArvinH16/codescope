@@ -72,7 +72,7 @@ export class GithubService {
       * This method takes from the main branch
   */
   public async getMainBranch() {
-      const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/main?recursive=1`)
+      const data =  await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/main?recursive=1`)
       return data.tree as GitNode[];
     }
   
@@ -86,6 +86,11 @@ export class GithubService {
       return data.tree as GitNode[];
     }
     
+    public async getRepoId() {
+      const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}`);
+      return data.id;
+    }
+
     public async getBlame(branch: string, filePath: string) {
       //
       // 2. If it's not a Blob, return null (directories, binaries, submodules, etc.)
@@ -189,5 +194,9 @@ export class GithubService {
 
   public getRepo() {
     return this.repo;
+  }
+
+  public getOwner() {
+    return this.owner;
   }
 }

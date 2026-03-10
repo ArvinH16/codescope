@@ -4,20 +4,32 @@ interface Comparable<T> {
 
 export class GitHubRepoFile implements Comparable<GitHubRepoFile> {
     private repositoryName: string;
+    private owner: string;
+    private id: string;
     private filepath: string;
     private fileContent: string;
     private authors: Map<string, number>;
     private isFile: boolean;
     private totalLines: number;
     private contributionPercentages: Map<string, number>;
+
     // This constructs a GitHubRepoFile and fills in all necesarry information
     // The totalLines is used to calculate the contribution percentage of each author
     // If this file is a blob it should be the number of lines in the file
     // If it is a tree it should be the total number of lines in all the files in that tree
     // fileContent should be the post-blames processed file
     // The authors array should have the contribution percentage of each author for that file
-    constructor(repositoryName: string, filepath: string, fileContent: string, authors: Map<string, number>, isFile: boolean, totalLines: number) {
+    constructor(repositoryName: string, 
+                owner: string,
+                id: string, 
+                filepath: string, 
+                fileContent: string, 
+                authors: Map<string, number>, 
+                isFile: boolean, 
+                totalLines: number) {
         this.repositoryName = repositoryName;
+        this.owner = owner;
+        this.id = id;
         this.filepath = filepath;
         this.fileContent = fileContent;
         this.authors = authors;
@@ -47,7 +59,7 @@ export class GitHubRepoFile implements Comparable<GitHubRepoFile> {
         return this.filepath.localeCompare(other.filepath);
     }
     
-    public getFilepath() {
+    public getPath() {
         return this.filepath;
     }
 
@@ -69,5 +81,9 @@ export class GitHubRepoFile implements Comparable<GitHubRepoFile> {
 
     public getContributionPercentages() {
         return this.contributionPercentages;
+    }
+
+    public getRepoId() {
+        return this.id
     }
 }

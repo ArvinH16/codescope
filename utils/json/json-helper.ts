@@ -10,6 +10,10 @@ export async function saveObjectToFile(filename: string, dataObject: any): Promi
   }
 }
 
+export function turnMapToJSON(obj: Map<any, any>): string {
+  return JSON.stringify(obj, mapReplacer, 2);
+}
+
 function mapReplacer(_: string, value: any) {
   if (value instanceof Map) {
     return Object.fromEntries(value);

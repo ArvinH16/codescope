@@ -1,3 +1,5 @@
+import { Empty } from "@/components/ui/empty";
+
 export default function Loading() {
-  return null
+  return <Empty></Empty>
 }

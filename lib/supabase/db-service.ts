@@ -1,4 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
+import { GitHubRepoFile } from '../github/github-repo-file';
+import { saveObjectToFile, turnMapToJSON } from '@/utils/json/json-helper';
 
 // Defines the data structure we need to save
 type SummaryData = {
@@ -41,5 +43,24 @@ export async function saveSummaryToDB(supabase: SupabaseClient, data: SummaryDat
   if (profileError) {
     console.error('Database Error updating profile:', profileError);
     // Don't throw here - the summary was saved successfully, this is just metadata
+  }
+}
+
+export async function saveRepository(supabase: SupabaseClient, repo: GitHubRepoFile[]) {
+  const trimmed = repo.map(file => ({
+    is_file : file.getIsFile(),
+    file_content : file.getFileContent(),
+    path : file.getPath(),
+    repo_id : file.getRepoId(),
+    author_list : turnMapToJSON(file.getContributionPercentages()),
+  }))
+  saveObjectToFile("test-results/supabase-insert-trimmed.json", { trimmed });
+  const { error } = await supabase.from("repos").upsert(
+    trimmed, {
+    onConflict: "repo_id,path",
+  });
+  if(error) {
+    console.error("Database Error saving repository:", error);
+    return new Error("Failed to save repository to database.");
   }
 }
