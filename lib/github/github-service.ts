@@ -2,14 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import type { SessionResult } from '@/utils/types/supabase';
 import { Session } from 'inspector';
 import { oneWeekAgo } from '@/utils/frontend/time/one-week-ago';
-import { GitNode } from '@/utils/types/github';
+import { BlameRange, GitNode } from '@/utils/types/github';
 // Define the shape of the data we want from GitHub
 interface CommitFile {
   filename: string;
   status: string;
   patch?: string; // The code diff the AI needs
 }
-
+// Pass information for a repository and then this object works as a way to interact with the 
+// GitHub API in an authenticated way (using the provider token from Supabase) easily
 export class GithubService {
   private provider_token: string;
   private owner: string;
@@ -61,14 +62,18 @@ export class GithubService {
     return data.files as CommitFile[];
   }
   
+  public async getFileContent(branch: string, filePath: string) {
+    const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/contents/${filePath}?ref=${branch}`);
+    return data;
+  }
   /*
     * 4. Get the tree structure of the repository (for context)
       * This is useful for the AI to understand the file structure and where changes are happening
       * This method takes from the main branch
   */
   public async getMainBranch() {
-      const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/main?recursive=1`)
-      return data as GitNode[];
+      const data =  await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/main?recursive=1`)
+      return data.tree as GitNode[];
     }
   
   /*
@@ -78,19 +83,21 @@ export class GithubService {
   */
     public async getTreeBranch(branch : string) {
       const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/${branch}?recursive=1`)
-      return data as GitNode[];
+      return data.tree as GitNode[];
     }
     
+    public async getRepoId() {
+      const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}`);
+      return data.id;
+    }
+
     public async getBlame(branch: string, filePath: string) {
       //
       // 2. If it's not a Blob, return null (directories, binaries, submodules, etc.)
       //
       const typename = await this.getFileType(branch, filePath);
       if (typename !== "Blob") {
-        return {
-          type: typename,
-          blame: null,
-        };
+        return [] as BlameRange[];
       }
 
       //
@@ -107,6 +114,7 @@ export class GithubService {
                   endingLine
                   age
                   commit {
+                    oid
                     message
                     committedDate
                     author {
@@ -139,7 +147,7 @@ export class GithubService {
       }
 
       const blameResult = await blameResponse.json();
-      return blameResult.data.repositoryOwner.repository.object.blame.ranges[0].commit;
+      return blameResult.data.repositoryOwner.repository.object.blame.ranges as BlameRange[];
 
   }
 
@@ -182,5 +190,13 @@ export class GithubService {
     const typeResult = await typeResponse.json();
     const typename = typeResult.data.repository.object?.__typename;
     return typename;
+  }
+
+  public getRepo() {
+    return this.repo;
+  }
+
+  public getOwner() {
+    return this.owner;
   }
 }

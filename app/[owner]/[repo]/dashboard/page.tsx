@@ -49,7 +49,6 @@ export default function DashboardPage() {
       const res = await fetch(`/api/repos/${owner}/${repo}/general-statistics`);
       const data = await res.json();
       setData(data);
-      fetch(`/api/repos/${owner}/${repo}/git-tree`);
     };
     fetchData();
   }, [owner, repo]);
@@ -85,6 +84,13 @@ export default function DashboardPage() {
     },
   ]
 
+  const processRepo = (owner: string, repo: string) => {
+    fetch(`/api/repos/${owner}/${repo}/process-repo`, {
+      method: "POST",
+      credentials: "include"
+      }
+    )
+  }
   const handleSendMessage = () => {
     if (!chatInput.trim()) return
 
@@ -168,10 +174,10 @@ export default function DashboardPage() {
           <div className="lg:col-span-2 space-y-6">
             <Tabs defaultValue="commits" className="w-full">
               <TabsList className="bg-slate-900/50 border border-slate-800">
-                <TabsTrigger value="commits">Commit Timeline</TabsTrigger>
-                <TabsTrigger value="contributors">Contributors</TabsTrigger>
-                <TabsTrigger value="modules">Modules</TabsTrigger>
-                <TabsTrigger value="activity">Activity</TabsTrigger>
+                <TabsTrigger value="commits" className="data-[state=inactive]:text-white">Commit Timeline</TabsTrigger>
+                <TabsTrigger value="contributors" className="data-[state=inactive]:text-white">Contributors</TabsTrigger>
+                <TabsTrigger value="modules" className="data-[state=inactive]:text-white">Modules</TabsTrigger>
+                <TabsTrigger value="activity" className="data-[state=inactive]:text-white">Activity</TabsTrigger>
               </TabsList>
 
               <TabsContent value="commits" className="mt-4">
@@ -194,7 +200,15 @@ export default function DashboardPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <AIInsightsPanel />
+            <Button
+              onClick={() => processRepo(owner, repo)}
+              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              disableOnClick
+              disabledText="Processing..."
+            >
+              Process Repository
+            </Button>
+
 
             {/* AI Chat Assistant */}
             <Card className="border-slate-800 bg-slate-900/50 backdrop-blur">
