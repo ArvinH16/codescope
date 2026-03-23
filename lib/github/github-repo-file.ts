@@ -2,6 +2,7 @@ interface Comparable<T> {
   compareTo(other: T): number;
 }
 
+// This class represents a processed file in a GitHub repository
 export class GitHubRepoFile implements Comparable<GitHubRepoFile> {
     private repositoryName: string;
     private owner: string;

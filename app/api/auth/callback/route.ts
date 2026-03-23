@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 // The client you created from the Server-Side Auth instructions
 import { createClient } from '@/utils/supabase/server'; 
 
+// This route is the callback URL that GitHub redirects to after the user authorizes the app.
+// It exchanges the authorization code for an access token, creates a session, and then redirects the user to the frontend.
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { oneWeekAgo } from "@/utils/frontend/time/one-week-ago";
 
+// Returns some basic statistics about the repository such as total commits, 
+// commits in the last week, number of contributors, and number of stargazers.
+// A better system than this one should eventually be implemented
+// TODO: Make this better
 export async function GET(request: NextRequest, context: { params: Promise<{ owner: string, repo: string }> }){
   const { owner, repo } = await context.params;
 

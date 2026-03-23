@@ -3,6 +3,8 @@ import { GithubService } from "./github-service";
 import { GitHubRepoFile } from "./github-repo-file";
 // TODO: Figure out a way to work around github API limiting the number of tree entries to 100k
 // Generally attempt to solve large repos
+
+// This class is responsible for processing a repository and producing a list of GitHubRepoFile objects
 export class GitBlamesProcess {
     private githubService: GithubService;
     private gitId: string;
@@ -12,7 +14,9 @@ export class GitBlamesProcess {
         this.gitId = "";
     }
 
-    public async processRepository() {
+    // Processes the repository associated with the github service 
+    // Returns a list of GitHubRepoFiles that represent the processed repository
+    public async processRepository(): Promise<GitHubRepoFile[]> {
         this.gitId = await this.githubService.getRepoId();
         const tree = await this.githubService.getMainBranch();
         let processedRepo : GitHubRepoFile[] = []; 
@@ -47,6 +51,10 @@ export class GitBlamesProcess {
         return processedRepo;
     }
 
+    // The helper method that processes the repository recursively
+    // Takes the remaining unprocessed part of the tree as a list of Gitnodes
+    // And the list of already processed GitHubRepoFiles, then continues to process the tree
+    // Proccesses a single file, adds it to the processedRepo, and returns that file.
     private async processRepositoryHelper(tree : GitNode[], 
                                           processedRepo : GitHubRepoFile[]) : 
                                           Promise<GitHubRepoFile | null>{

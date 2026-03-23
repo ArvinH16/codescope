@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 // The client you created from the Server-Side Auth instructions
 import { createClient } from '@/utils/supabase/server'
 
+// This route is hit when the user clicks "Sign in with GitHub" on the frontend. 
+// It redirects the user to GitHub's OAuth flow.
+// Note: The actual handling of the OAuth callback is done in the /api/auth/callback route, 
+// which exchanges the code for a token and creates a session.
 export async function GET(request: NextRequest) {
   const supabase = await createClient();
   const origin = new URL(request.url).origin;

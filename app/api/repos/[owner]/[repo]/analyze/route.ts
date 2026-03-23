@@ -1,4 +1,4 @@
-import { processChatbotRequest } from "@/lib/ai-chatbot";
+import { processAIRequest } from "@/lib/ai-process";
 import { GithubService } from "@/lib/github/github-service";
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
@@ -52,7 +52,7 @@ export async function POST(
   }
 
   try {
-    const result = await processChatbotRequest(
+    const result = await processAIRequest(
       option,
       row.entity_id,
       targetAuthor
