@@ -1,12 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -17,99 +15,105 @@ import {
   Sparkles,
   TrendingUp,
   Activity,
-  Send,
-  LogOut,
   ArrowLeft,
+  Loader2,
 } from "lucide-react"
 import { CommitTimeline } from "@/components/commit-timeline"
 import { ContributorStats } from "@/components/contributor-stats"
 import { ModuleOwnership } from "@/components/module-ownership"
 import { ActivityChart } from "@/components/activity-chart"
 import { AIInsightsPanel } from "@/components/ai-insights-panel"
-import SignOutButton from '@/components/ui/sign-out-button'
+import { GitTree } from "@/components/git-tree"
+import SignOutButton from "@/components/ui/sign-out-button"
 
-
+const MIN_PANEL_WIDTH = 200
+const MAX_PANEL_WIDTH = 620
+const DEFAULT_PANEL_WIDTH = 320
 
 export default function DashboardPage() {
-  const [data, setData] = useState(null);
-  const [chatInput, setChatInput] = useState("")
-  const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([
-    {
-      role: "assistant",
-      content:
-        "Hi! I'm your AI assistant. Ask me anything about your repository activity, code patterns, or contributor insights.",
-    },
-  ])
-  const params = useParams();
+  const [data, setData] = useState(null)
+  const [isProcessed, setIsProcessed] = useState(false)
+  const [gitTreeRefreshKey, setGitTreeRefreshKey] = useState(0)
+
+  // AI output panel state
+  const [aiEntries, setAiEntries] = useState<{ label: string; text: string }[]>([])
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiLoadingLabel, setAiLoadingLabel] = useState("")
+
+  // Resizable panel state
+  const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH)
+  const isDragging = useRef(false)
+  const dragStartX = useRef(0)
+  const dragStartWidth = useRef(0)
+
+  const params = useParams()
   const router = useRouter()
-  const owner = params.owner as string;
-  const repo = params.repo as string;
+  const owner = params.owner as string
+  const repo = params.repo as string
+
   useEffect(() => {
     const fetchData = async () => {
-      const res = await fetch(`/api/repos/${owner}/${repo}/general-statistics`);
-      const data = await res.json();
-      setData(data);
-    };
-    fetchData();
-  }, [owner, repo]);
+      const res = await fetch(`/api/repos/${owner}/${repo}/general-statistics`)
+      const data = await res.json()
+      setData(data)
+    }
+    fetchData()
+  }, [owner, repo])
 
-  if (!data) {
-    return null;
-  }
-  const {totalCommits, weeklyCommits, contributors, starGazers} = data;
+  // ─── Drag-to-resize logic ──────────────────────────────────────────────────
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    isDragging.current = true
+    dragStartX.current = e.clientX
+    dragStartWidth.current = panelWidth
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return
+      // Dragging left = wider panel, dragging right = narrower
+      const delta = dragStartX.current - e.clientX
+      const next = Math.min(MAX_PANEL_WIDTH, Math.max(MIN_PANEL_WIDTH, dragStartWidth.current + delta))
+      setPanelWidth(next)
+    }
+
+    const onMouseUp = () => {
+      isDragging.current = false
+      document.removeEventListener("mousemove", onMouseMove)
+      document.removeEventListener("mouseup", onMouseUp)
+    }
+
+    document.addEventListener("mousemove", onMouseMove)
+    document.addEventListener("mouseup", onMouseUp)
+  }, [panelWidth])
+
+  // ─── AI result callback (passed down to GitTree) ───────────────────────────
+  const handleAiResult = useCallback((text: string, label: string) => {
+    if (text === "") {
+      setAiLoading(true)
+      setAiLoadingLabel(label)
+    } else {
+      setAiLoading(false)
+      setAiLoadingLabel("")
+      setAiEntries((prev) => [{ label, text }, ...prev])
+    }
+  }, [])
+
+  if (!data) return null
+
+  const { totalCommits, weeklyCommits, contributors, starGazers } = data as any
   const stats = [
-    {
-      label: "Total Commits",
-      value: totalCommits,
-      icon: GitCommit,
-      color: "from-blue-500 to-cyan-500",
-    },
-    {
-      label: "Last Week's Commits",
-      value: weeklyCommits,
-      icon: TrendingUp,
-      color: "from-green-500 to-emerald-500",
-    },
-    {
-      label: "Active Contributors",
-      value: contributors,
-      icon: Users,
-      color: "from-purple-500 to-pink-500",
-    },
-    {
-      label: "Stargazers",
-      value: starGazers,
-      icon: Star,
-      color: "from-yellow-400 to-orange-500",
-    },
+    { label: "Total Commits",       value: totalCommits,  icon: GitCommit,  color: "from-blue-500 to-cyan-500"    },
+    { label: "Last Week's Commits", value: weeklyCommits, icon: TrendingUp, color: "from-green-500 to-emerald-500" },
+    { label: "Active Contributors", value: contributors,  icon: Users,      color: "from-purple-500 to-pink-500"  },
+    { label: "Stargazers",          value: starGazers,    icon: Star,       color: "from-yellow-400 to-orange-500" },
   ]
 
-  const processRepo = (owner: string, repo: string) => {
-    fetch(`/api/repos/${owner}/${repo}/process-repo`, {
+  const processRepo = async () => {
+    const res = await fetch(`/api/repos/${owner}/${repo}/process-repo`, {
       method: "POST",
-      credentials: "include"
-      }
-    )
-  }
-  const handleSendMessage = () => {
-    if (!chatInput.trim()) return
-
-    const newMessages = [
-      ...chatMessages,
-      { role: "user" as const, content: chatInput },
-      {
-        role: "assistant" as const,
-        content:
-          "Based on recent commits, I can see increased activity in the authentication module. Would you like me to analyze specific contributors or code patterns?",
-      },
-    ]
-    setChatMessages(newMessages)
-    setChatInput("")
-  }
-
-
-  const handleBackToRepos = () => {
-    router.push("/repositories")
+      credentials: "include",
+    })
+    if (res.ok) {
+      setGitTreeRefreshKey((k) => k + 1)
+    }
   }
 
   return (
@@ -121,7 +125,7 @@ export default function DashboardPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleBackToRepos}
+              onClick={() => router.push("/repositories")}
               className="text-slate-400 hover:text-white hover:bg-slate-800 mr-2"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -143,8 +147,7 @@ export default function DashboardPage() {
               <AvatarImage src="/placeholder.svg?height=32&width=32" />
               <AvatarFallback>JD</AvatarFallback>
             </Avatar>
-            <SignOutButton>
-            </SignOutButton>
+            <SignOutButton />
           </div>
         </div>
       </header>
@@ -156,9 +159,7 @@ export default function DashboardPage() {
             <Card key={stat.label} className="border-slate-800 bg-slate-900/50 backdrop-blur">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <div
-                    className={`w-12 h-12 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center`}
-                  >
+                  <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
                     <stat.icon className="w-6 h-6 text-white" />
                   </div>
                 </div>
@@ -169,96 +170,81 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            <Tabs defaultValue="commits" className="w-full">
+        {/* Main layout: flex row with draggable divider */}
+        <div className="flex items-start">
+          {/* Left: tabs content */}
+          <div className="flex-1 min-w-0 space-y-6 mr-2">
+            <Tabs defaultValue="git-tree" className="w-full">
               <TabsList className="bg-slate-900/50 border border-slate-800">
-                <TabsTrigger value="commits" className="data-[state=inactive]:text-white">Commit Timeline</TabsTrigger>
+              <TabsTrigger value="git-tree"     className="data-[state=inactive]:text-white">Git Tree</TabsTrigger> 
+                <TabsTrigger value="commits"      className="data-[state=inactive]:text-white">Commit Timeline</TabsTrigger>
                 <TabsTrigger value="contributors" className="data-[state=inactive]:text-white">Contributors</TabsTrigger>
-                <TabsTrigger value="modules" className="data-[state=inactive]:text-white">Modules</TabsTrigger>
-                <TabsTrigger value="activity" className="data-[state=inactive]:text-white">Activity</TabsTrigger>
+                <TabsTrigger value="modules"      className="data-[state=inactive]:text-white">Modules</TabsTrigger>
+                <TabsTrigger value="activity"     className="data-[state=inactive]:text-white">Activity</TabsTrigger>
               </TabsList>
-
-              <TabsContent value="commits" className="mt-4">
-                <CommitTimeline />
+              <TabsContent value="git-tree"     className="mt-4">
+                <GitTree owner={owner} repo={repo} onAiResult={handleAiResult} onProcessedChange={setIsProcessed} refreshKey={gitTreeRefreshKey} />
               </TabsContent>
+              <TabsContent value="commits"      className="mt-4"><CommitTimeline /></TabsContent>
+              <TabsContent value="contributors" className="mt-4"><ContributorStats owner={owner} repo={repo} /></TabsContent>
+              <TabsContent value="modules"      className="mt-4"><ModuleOwnership /></TabsContent>
+              <TabsContent value="activity"     className="mt-4"><ActivityChart /></TabsContent>
 
-              <TabsContent value="contributors" className="mt-4">
-                <ContributorStats owner={owner} repo={repo} />
-              </TabsContent>
-
-              <TabsContent value="modules" className="mt-4">
-                <ModuleOwnership />
-              </TabsContent>
-
-              <TabsContent value="activity" className="mt-4">
-                <ActivityChart />
-              </TabsContent>
             </Tabs>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
+          {/* Drag handle */}
+          <div
+            className="w-1.5 self-stretch flex-shrink-0 cursor-col-resize rounded
+                       bg-slate-800 hover:bg-cyan-600 active:bg-cyan-500 transition-colors"
+            onMouseDown={handleDragStart}
+            title="Drag to resize panel"
+          />
+
+          {/* Right: resizable AI output panel */}
+          <div
+            className="flex-shrink-0 space-y-6 ml-2"
+            style={{ width: panelWidth }}
+          >
             <Button
-              onClick={() => processRepo(owner, repo)}
-              className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+              onClick={processRepo}
+              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
               disableOnClick
               disabledText="Processing..."
             >
-              Process Repository
+              {isProcessed ? "Update Repository" : "Process Repository"}
             </Button>
 
-
-            {/* AI Chat Assistant */}
+            {/* AI Output Panel */}
             <Card className="border-slate-800 bg-slate-900/50 backdrop-blur">
               <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-cyan-400" />
-                  AI Assistant
+                  AI Output
                 </CardTitle>
-                <CardDescription>Ask questions about your repository</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="h-64 overflow-y-auto space-y-3 mb-4 pr-2">
-                    {chatMessages.map((msg, idx) => (
-                      <div key={idx} className={`flex gap-2 ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                        {msg.role === "assistant" && (
-                          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center flex-shrink-0">
-                            <Sparkles className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                        <div
-                          className={`rounded-lg p-3 max-w-[80%] text-sm ${msg.role === "user" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-200"
-                            }`}
-                        >
-                          {msg.content}
-                        </div>
-                        {msg.role === "user" && (
-                          <Avatar className="w-8 h-8 flex-shrink-0">
-                            <AvatarFallback className="text-xs">JD</AvatarFallback>
-                          </Avatar>
-                        )}
+                <div className="space-y-4 overflow-y-auto max-h-[600px] pr-1">
+                  {aiLoading && (
+                    <div className="border border-slate-700 rounded-lg p-3">
+                      <p className="text-xs text-slate-400 mb-2 truncate" title={aiLoadingLabel}>{aiLoadingLabel}</p>
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                        <span className="text-sm">Analyzing…</span>
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Ask about commits, contributors..."
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                      className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
-                    />
-                    <Button
-                      size="icon"
-                      onClick={handleSendMessage}
-                      className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-                    >
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  </div>
+                    </div>
+                  )}
+                  {aiEntries.map((entry, i) => (
+                    <div key={i} className="border border-slate-700 rounded-lg p-3">
+                      <p className="text-xs text-slate-400 mb-2 truncate" title={entry.label}>{entry.label}</p>
+                      <p className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">{entry.text}</p>
+                    </div>
+                  ))}
+                  {!aiLoading && aiEntries.length === 0 && (
+                    <p className="text-sm text-slate-500 text-center py-8">
+                      No results yet. Right-click a file or folder in the Git Tree tab to run an analysis.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>

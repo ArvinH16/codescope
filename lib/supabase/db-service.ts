@@ -54,7 +54,7 @@ export async function saveRepository(supabase: SupabaseClient, repo: GitHubRepoF
     repo_id : file.getRepoId(),
     author_list : turnMapToJSON(file.getContributionPercentages()),
   }))
-  saveObjectToFile("test-results/supabase-insert-trimmed.json", { trimmed });
+
   const { error } = await supabase.from("repos").upsert(
     trimmed, {
     onConflict: "repo_id,path",
@@ -63,4 +63,10 @@ export async function saveRepository(supabase: SupabaseClient, repo: GitHubRepoF
     console.error("Database Error saving repository:", error);
     return new Error("Failed to save repository to database.");
   }
+
+  const pathsToKeep = trimmed.map(f => f.path);
+  await supabase.from("repos")
+                .delete()
+                .eq("repo_id", trimmed[0].repo_id)
+                .not("path", "in", pathsToKeep);
 }

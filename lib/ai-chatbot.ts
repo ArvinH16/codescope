@@ -1,22 +1,23 @@
 import OpenAI from 'openai';
 import { createClient } from '@/utils/supabase/server';
+import { turnJSONToMap } from '@/utils/json/json-helper';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
-export type ChatbotOption = 'contributors' | 'author_work' | 'file_summary';
+
 
 export interface FileEntry {
     entity_id: string;
     path: string;
     repo_id: string;
-    author_list: any; // jsonb (Array or Record<string, number>)
-    file_content: any; // jsonb (string with blames data or array of strings)
+    file_content: string; // jsonb 
+    author_list: Map<string, number>;
 }
 
 export async function processChatbotRequest(
-    option: ChatbotOption,
+    option: string,
     entity_id: string,
     targetAuthor?: string
 ): Promise<string> {
@@ -31,104 +32,56 @@ export async function processChatbotRequest(
     if (error || !fileData) {
         throw new Error(`Failed to fetch file from database: ${error?.message || 'File not found'}`);
     }
-
-    const file: FileEntry = fileData as FileEntry;
+    
+    const file: FileEntry = {...fileData, author_list: turnJSONToMap(fileData.author_list)};
 
     // 1. Contributors option
     if (option === 'contributors') {
-        // Determine the list of authors based on jsonb format
-        let authors: string[] = [];
-        if (Array.isArray(file.author_list)) {
-            authors = typeof file.author_list[0] === 'string'
-                ? file.author_list
-                : file.author_list.map((a: any) => a.name || JSON.stringify(a));
-        } else if (typeof file.author_list === 'object' && file.author_list !== null) {
-            authors = Object.keys(file.author_list);
-        }
-
-        if (authors.length <= 10) {
-            return `The contributors to this file are: ${authors.join(', ')}`;
-        } else {
-            // Access blame data to find 10 most recent
-            let lines: string[] = [];
-            if (typeof file.file_content === 'string') {
-                lines = file.file_content.split('\n');
-            } else if (Array.isArray(file.file_content)) {
-                lines = typeof file.file_content[0] === 'string'
-                    ? file.file_content
-                    : file.file_content.map((c: any) => JSON.stringify(c));
-            }
-
-            const authorTimestamps = new Map<string, number>();
-            // blame format from git-blames-process: "(<author name> - <committed date>) <line number>) <line content>"
-            const blameRegex = /^\((.+?) - (.+?)\) \d+\)/;
-
-            for (const line of lines) {
-                if (line.startsWith('No blame info')) continue;
-                const match = line.match(blameRegex);
-                if (match) {
-                    const author = match[1];
-                    const dateStr = match[2];
-                    const timestamp = new Date(dateStr).getTime();
-                    if (!isNaN(timestamp)) {
-                        const existing = authorTimestamps.get(author) || 0;
-                        if (timestamp > existing) {
-                            authorTimestamps.set(author, timestamp);
-                        }
-                    }
-                }
-            }
-
-            if (authorTimestamps.size === 0) {
-                return `There are ${authors.length} contributors. (Could not parse timestamps to find the 10 most recent)`;
-            }
-
-            const sortedAuthors = Array.from(authorTimestamps.entries())
-                .sort((a, b) => b[1] - a[1]) // Newest to oldest
-                .slice(0, 10)
-                .map(entry => entry[0]);
-
-            return `There are ${authors.length} contributors. The 10 most recent are: ${sortedAuthors.join(', ')}`;
-        }
+        return listContributors(file);
     }
 
     // 2. What has [author] worked on in this file?
     if (option === 'author_work') {
-        if (!targetAuthor) {
-            throw new Error("Target author is required for this option.");
-        }
+        return await authorWork(file, targetAuthor || '');
+    }
+    // 3. Summary of file
+    if (option === 'file_summary') {
+        return await fileSummary(file);
+    }
 
-        let lines: string[] = [];
-        if (typeof file.file_content === 'string') {
-            lines = file.file_content.split('\n');
-        } else if (Array.isArray(file.file_content)) {
-            lines = typeof file.file_content[0] === 'string'
-                ? file.file_content
-                : file.file_content.map((c: any) => JSON.stringify(c));
-        }
+    throw new Error("Invalid chatbot option selected.");
+}
 
-        // Match exactly the author in the blame pattern to avoid substring issues
-        const prefixMatch = `(${targetAuthor} - `;
-        const authorLines = lines.filter(line => line.startsWith(prefixMatch));
+function listContributors(file : FileEntry): string {
+    // Determine the list of authors based on jsonb format
+    if (file.author_list instanceof Map && file.author_list.size > 0) {
+        return `The contributors to this file are: ${Array.from(file.author_list.keys()).join(', ')}`;
+    } else {
+        return "No contributors found for this file.";
+    }
+}
 
-        if (authorLines.length === 0) {
-            return `No work found for ${targetAuthor} in this file.`;
-        }
+async function authorWork(file: FileEntry, targetAuthor: string): Promise<string> {
+    if (!targetAuthor) {
+        throw new Error("Target author is required for this option.");
+    }
 
-        const snippetCollection = authorLines.join('\n');
+    if(file.author_list instanceof Map && !file.author_list.has(targetAuthor)) {
+        return `Author ${targetAuthor} has not contributed to this file.`;
+    }
 
-        const prompt = `You are an expert Senior Developer and Repository Architect. I am providing you with every line of code authored by ${targetAuthor} within the file ${file.path}.
+    const prompt = `You are an expert Senior Developer and Repository Architect. I am providing you with every line of code in this file. Note that at the start of each line, there is a blame entry indicating the author.
 
-YOUR TASK:
-Analyze the provided code snippets and categorize this contributor's role in this specific file.
-   What are the primary functional areas they touched? (e.g., core logic, UI styling, data fetching, or boilerplate).
-   Based on the complexity of the lines, are they the primary architect of this logic or providing maintenance/updates?
-   Provide a concise, two-sentence summary of their 'Technical Identity' for this file.
+    YOUR TASK:
+    Analyze the provided code snippets and categorize this contributor's role in this specific file.
+    What are the primary functional areas they touched? (e.g., core logic, UI styling, data fetching, or boilerplate).
+    Based on the complexity of the lines, are they the primary architect of this logic or providing maintenance/updates?
+    Provide a concise, two-sentence summary of their 'Technical Identity' for this file.
 
-CONSTRAINT: Do not list the line numbers in your final answer; use them only to understand the context and flow of the work.
+    CONSTRAINT: Do not list the line numbers in your final answer; use them only to understand the context and flow of the work.
 
-THE DATA:
-${snippetCollection}`;
+    THE DATA:
+    ${file.file_content}`;
 
         try {
             const completion = await openai.chat.completions.create({
@@ -144,18 +97,13 @@ ${snippetCollection}`;
             console.error("OpenAI API Error:", error);
             throw new Error(`Failed to generate response: ${error.message}`);
         }
-    }
+}
 
-    // 3. Summary of file
-    if (option === 'file_summary') {
-        let fullBlameDataArray = '';
+async function fileSummary(file: FileEntry): Promise<string> {
+    let fullBlameDataArray = '';
 
         if (typeof file.file_content === 'string') {
             fullBlameDataArray = file.file_content;
-        } else if (Array.isArray(file.file_content)) {
-            fullBlameDataArray = typeof file.file_content[0] === 'string'
-                ? file.file_content.join('\n')
-                : JSON.stringify(file.file_content, null, 2);
         } else {
             fullBlameDataArray = JSON.stringify(file.file_content, null, 2);
         }
@@ -181,8 +129,5 @@ ${fullBlameDataArray}`;
         } catch (error: any) {
             console.error("OpenAI API Error:", error);
             throw new Error(`Failed to generate summary: ${error.message}`);
-        }
-    }
-
-    throw new Error("Invalid chatbot option selected.");
+        }   
 }
