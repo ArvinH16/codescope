@@ -10,24 +10,28 @@ export async function saveObjectToFile(filename: string, dataObject: any): Promi
   }
 }
 
-export function turnMapToJSON(obj: Map<any, any>): string {
-  return JSON.stringify(obj, mapReplacer, 2);
+export function turnMapToJSON(map: Map<any, any>): string {
+  return JSON.stringify(map, mapReplacer);
 }
 
-export function turnJSONToMap(jsonString: string): Map<any, any> {
-  return JSON.parse(jsonString, mapReviver);
-}
-
-function mapReplacer(_: string, value: any) {
+function mapReplacer(key: string, value: any): any {
   if (value instanceof Map) {
-    return Object.fromEntries(value);
+    return Array.from(value.entries());
   }
   return value;
 }
 
-function mapReviver(key: string, value: any) {
-  if (value && value.__type === 'Map') {
-    return new Map(value.value);
+
+export function turnJSONToMap(input: string | [any, any][]): Map<any, any> {
+  if (Array.isArray(input)) {
+    return new Map(input);
+  }
+  return JSON.parse(input, mapReviver);
+}
+
+function mapReviver(key: string, value: any): any {
+  if (Array.isArray(value) && value.length > 0 && value.every(item => Array.isArray(item) && item.length === 2)) {
+    return new Map(value);
   }
   return value;
 }

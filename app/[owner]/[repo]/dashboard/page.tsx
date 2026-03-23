@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter, useParams } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -32,11 +32,13 @@ const DEFAULT_PANEL_WIDTH = 320
 
 export default function DashboardPage() {
   const [data, setData] = useState(null)
+  const [isProcessed, setIsProcessed] = useState(false)
+  const [gitTreeRefreshKey, setGitTreeRefreshKey] = useState(0)
 
   // AI output panel state
-  const [aiResult, setAiResult] = useState<string | null>(null)
-  const [aiResultLabel, setAiResultLabel] = useState<string>("")
+  const [aiEntries, setAiEntries] = useState<{ label: string; text: string }[]>([])
   const [aiLoading, setAiLoading] = useState(false)
+  const [aiLoadingLabel, setAiLoadingLabel] = useState("")
 
   // Resizable panel state
   const [panelWidth, setPanelWidth] = useState(DEFAULT_PANEL_WIDTH)
@@ -84,13 +86,13 @@ export default function DashboardPage() {
 
   // ─── AI result callback (passed down to GitTree) ───────────────────────────
   const handleAiResult = useCallback((text: string, label: string) => {
-    setAiResultLabel(label)
     if (text === "") {
       setAiLoading(true)
-      setAiResult(null)
+      setAiLoadingLabel(label)
     } else {
       setAiLoading(false)
-      setAiResult(text)
+      setAiLoadingLabel("")
+      setAiEntries((prev) => [{ label, text }, ...prev])
     }
   }, [])
 
@@ -104,11 +106,14 @@ export default function DashboardPage() {
     { label: "Stargazers",          value: starGazers,    icon: Star,       color: "from-yellow-400 to-orange-500" },
   ]
 
-  const processRepo = () => {
-    fetch(`/api/repos/${owner}/${repo}/process-repo`, {
+  const processRepo = async () => {
+    const res = await fetch(`/api/repos/${owner}/${repo}/process-repo`, {
       method: "POST",
       credentials: "include",
     })
+    if (res.ok) {
+      setGitTreeRefreshKey((k) => k + 1)
+    }
   }
 
   return (
@@ -169,22 +174,22 @@ export default function DashboardPage() {
         <div className="flex items-start">
           {/* Left: tabs content */}
           <div className="flex-1 min-w-0 space-y-6 mr-2">
-            <Tabs defaultValue="commits" className="w-full">
+            <Tabs defaultValue="git-tree" className="w-full">
               <TabsList className="bg-slate-900/50 border border-slate-800">
+              <TabsTrigger value="git-tree"     className="data-[state=inactive]:text-white">Git Tree</TabsTrigger> 
                 <TabsTrigger value="commits"      className="data-[state=inactive]:text-white">Commit Timeline</TabsTrigger>
                 <TabsTrigger value="contributors" className="data-[state=inactive]:text-white">Contributors</TabsTrigger>
                 <TabsTrigger value="modules"      className="data-[state=inactive]:text-white">Modules</TabsTrigger>
                 <TabsTrigger value="activity"     className="data-[state=inactive]:text-white">Activity</TabsTrigger>
-                <TabsTrigger value="git-tree"     className="data-[state=inactive]:text-white">Git Tree</TabsTrigger>
               </TabsList>
-
+              <TabsContent value="git-tree"     className="mt-4">
+                <GitTree owner={owner} repo={repo} onAiResult={handleAiResult} onProcessedChange={setIsProcessed} refreshKey={gitTreeRefreshKey} />
+              </TabsContent>
               <TabsContent value="commits"      className="mt-4"><CommitTimeline /></TabsContent>
               <TabsContent value="contributors" className="mt-4"><ContributorStats owner={owner} repo={repo} /></TabsContent>
               <TabsContent value="modules"      className="mt-4"><ModuleOwnership /></TabsContent>
               <TabsContent value="activity"     className="mt-4"><ActivityChart /></TabsContent>
-              <TabsContent value="git-tree"     className="mt-4">
-                <GitTree owner={owner} repo={repo} onAiResult={handleAiResult} />
-              </TabsContent>
+
             </Tabs>
           </div>
 
@@ -207,7 +212,7 @@ export default function DashboardPage() {
               disableOnClick
               disabledText="Processing..."
             >
-              Process Repository
+              {isProcessed ? "Update Repository" : "Process Repository"}
             </Button>
 
             {/* AI Output Panel */}
@@ -217,25 +222,30 @@ export default function DashboardPage() {
                   <Sparkles className="w-5 h-5 text-cyan-400" />
                   AI Output
                 </CardTitle>
-                <CardDescription className="truncate" title={aiResultLabel}>
-                  {aiResultLabel || "Right-click a file or folder in Git Tree"}
-                </CardDescription>
               </CardHeader>
               <CardContent>
-                {aiLoading ? (
-                  <div className="flex items-center gap-2 py-8 justify-center text-slate-400">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    <span className="text-sm">Analyzing…</span>
-                  </div>
-                ) : aiResult ? (
-                  <p className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">
-                    {aiResult}
-                  </p>
-                ) : (
-                  <p className="text-sm text-slate-500 text-center py-8">
-                    No results yet. Right-click a file or folder in the Git Tree tab to run an analysis.
-                  </p>
-                )}
+                <div className="space-y-4 overflow-y-auto max-h-[600px] pr-1">
+                  {aiLoading && (
+                    <div className="border border-slate-700 rounded-lg p-3">
+                      <p className="text-xs text-slate-400 mb-2 truncate" title={aiLoadingLabel}>{aiLoadingLabel}</p>
+                      <div className="flex items-center gap-2 text-slate-400">
+                        <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                        <span className="text-sm">Analyzing…</span>
+                      </div>
+                    </div>
+                  )}
+                  {aiEntries.map((entry, i) => (
+                    <div key={i} className="border border-slate-700 rounded-lg p-3">
+                      <p className="text-xs text-slate-400 mb-2 truncate" title={entry.label}>{entry.label}</p>
+                      <p className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">{entry.text}</p>
+                    </div>
+                  ))}
+                  {!aiLoading && aiEntries.length === 0 && (
+                    <p className="text-sm text-slate-500 text-center py-8">
+                      No results yet. Right-click a file or folder in the Git Tree tab to run an analysis.
+                    </p>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

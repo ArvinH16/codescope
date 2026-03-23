@@ -132,9 +132,11 @@ interface GitTreeProps {
   owner: string
   repo: string
   onAiResult: (text: string, label: string) => void
+  onProcessedChange?: (processed: boolean) => void
+  refreshKey?: number
 }
 
-export function GitTree({ owner, repo, onAiResult }: GitTreeProps) {
+export function GitTree({ owner, repo, onAiResult, onProcessedChange, refreshKey }: GitTreeProps) {
   const [loading, setLoading] = useState(true)
   const [processed, setProcessed] = useState(false)
   const [tree, setTree] = useState<TreeNode[]>([])
@@ -151,17 +153,20 @@ export function GitTree({ owner, repo, onAiResult }: GitTreeProps) {
         if (json.processed) {
           setProcessed(true)
           setTree(buildTree(json.files as FileEntry[]))
+          onProcessedChange?.(true)
         } else {
           setProcessed(false)
+          onProcessedChange?.(false)
         }
       } catch {
         setProcessed(false)
+        onProcessedChange?.(false)
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [owner, repo])
+  }, [owner, repo, refreshKey])
 
   const toggleExpand = useCallback((path: string) => {
     setExpanded((prev) => {
