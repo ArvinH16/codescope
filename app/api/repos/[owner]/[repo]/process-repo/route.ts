@@ -4,7 +4,9 @@ import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 import { saveRepository } from "@/lib/supabase/db-service";
 import { saveObjectToFile, turnMapToJSON } from "@/utils/json/json-helper";
-
+// This route is responsible for processing a repository by fetching its data from GitHub,
+// running the blames process to determine which author is responsible for each line of code,
+// and then saving the processed data to the database. It is triggered when the user clicks the "Process Repository" button on the frontend.
 export async function POST(request: NextRequest, context: { params: Promise<{ owner: string; repo: string }> }) {
     const { owner, repo } = await context.params;
 

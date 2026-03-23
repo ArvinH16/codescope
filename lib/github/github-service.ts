@@ -9,6 +9,7 @@ interface CommitFile {
   status: string;
   patch?: string; // The code diff the AI needs
 }
+
 // Pass information for a repository and then this object works as a way to interact with the 
 // GitHub API in an authenticated way (using the provider token from Supabase) easily
 export class GithubService {
@@ -54,73 +55,70 @@ export class GithubService {
       // THIS IS FOR TESTING:
       return this.fetchGithub(`/repos/${this.owner}/${this.repo}/commits?per_page=1`);
   }
-  /**
-   * 3. Get the detailed files/changes for a specific commit
-   */
-  public async getCommitDiff(sha: string) {
+  
+  // Takes the sha of a commit and returns the files changed as a list of CommitFile objects
+  public async getCommitDiff(sha: string) : Promise<CommitFile[]> {
     const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/commits/${sha}`)
     return data.files as CommitFile[];
   }
   
-  public async getFileContent(branch: string, filePath: string) {
+  // Fetches and returns the content of a file in the repository
+  // Uses a branch and the file path to find which file to return
+  public async getFileContent(branch: string, filePath: string) : Promise<any> {
     const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/contents/${filePath}?ref=${branch}`);
     return data;
   }
-  /*
-    * 4. Get the tree structure of the repository (for context)
-      * This is useful for the AI to understand the file structure and where changes are happening
-      * This method takes from the main branch
-  */
-  public async getMainBranch() {
+  
+  // Fetches and returns the main branch of the repository as a list of GitNodes
+  public async getMainBranch() : Promise<GitNode[]> {
       const data =  await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/main?recursive=1`)
       return data.tree as GitNode[];
     }
   
-  /*
-    * 4. Get the tree structure of the repository (for context)
-      * This is useful for the AI to understand the file structure and where changes are happening
-      * This method takes from the provided branch
-  */
-    public async getTreeBranch(branch : string) {
-      const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/${branch}?recursive=1`)
-      return data.tree as GitNode[];
-    }
-    
-    public async getRepoId() {
-      const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}`);
-      return data.id;
+  // Takes the name of a branch in the repository
+  // Returns the associated tree of that branch as a list of GitNodes
+  public async getTreeBranch(branch : string) : Promise<GitNode[]> {
+    const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}/git/trees/${branch}?recursive=1`)
+    return data.tree as GitNode[];
+  }
+  
+  // Returns the repoId of the associated repository
+  public async getRepoId() : Promise<string> {
+    const data = await this.fetchGithub(`/repos/${this.owner}/${this.repo}`);
+    return data.id;
+  }
+
+  // Takes a branch and a file path, and returns the blame information for that file as a list of BlameRange objects
+  // Throws errors if the git graphQL does not respond properly
+  public async getBlame(branch: string, filePath: string) {
+    //
+    // 2. If it's not a Blob, return null (directories, binaries, submodules, etc.)
+    //
+    const typename = await this.getFileType(branch, filePath);
+    if (typename !== "Blob") {
+      return [] as BlameRange[];
     }
 
-    public async getBlame(branch: string, filePath: string) {
-      //
-      // 2. If it's not a Blob, return null (directories, binaries, submodules, etc.)
-      //
-      const typename = await this.getFileType(branch, filePath);
-      if (typename !== "Blob") {
-        return [] as BlameRange[];
-      }
-
-      //
-      // 3. Second query: safe blame query (only runs if Blob)
-      //
-      const blameQuery = `query {
-      repositoryOwner(login: "${this.owner}") {
-        repository(name: "${this.repo}") {
-          object(expression: "${branch}") {
-            ... on Commit {
-              blame(path: "${filePath}") {
-                ranges {
-                  startingLine
-                  endingLine
-                  age
-                  commit {
-                    oid
-                    message
-                    committedDate
-                    author {
-                    name
-                    email
-                  }
+    //
+    // 3. Second query: safe blame query (only runs if Blob)
+    //
+    const blameQuery = `query {
+    repositoryOwner(login: "${this.owner}") {
+      repository(name: "${this.repo}") {
+        object(expression: "${branch}") {
+          ... on Commit {
+            blame(path: "${filePath}") {
+              ranges {
+                startingLine
+                endingLine
+                age
+                commit {
+                  oid
+                  message
+                  committedDate
+                  author {
+                  name
+                  email
                 }
               }
             }
@@ -128,29 +126,33 @@ export class GithubService {
         }
       }
     }
+  }
+  }
+    `;
+
+    const blameResponse = await fetch("https://api.github.com/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${this.provider_token}`,
+      },
+      body: JSON.stringify({
+        query: blameQuery,
+      }),
+    });
+
+    if (!blameResponse.ok) {
+      throw new Error(`GitHub GraphQL API Error: ${blameResponse.statusText}`);
     }
-      `;
 
-      const blameResponse = await fetch("https://api.github.com/graphql", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${this.provider_token}`,
-        },
-        body: JSON.stringify({
-          query: blameQuery,
-        }),
-      });
-
-      if (!blameResponse.ok) {
-        throw new Error(`GitHub GraphQL API Error: ${blameResponse.statusText}`);
-      }
-
-      const blameResult = await blameResponse.json();
-      return blameResult.data.repositoryOwner.repository.object.blame.ranges as BlameRange[];
+    const blameResult = await blameResponse.json();
+    return blameResult.data.repositoryOwner.repository.object.blame.ranges as BlameRange[];
 
   }
 
+  // Takes a branch and a file path and returns what kind of git object it is
+  // Namely Blob or Tree
+  // THrows an error if Github GraphQL does not respond properly or if the object does not exist
   private async getFileType(branch: string, filePath: string) {
     //
     // 1. First query: ask GitHub what type this object actually is

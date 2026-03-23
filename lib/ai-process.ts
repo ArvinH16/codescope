@@ -15,8 +15,13 @@ export interface FileEntry {
     file_content: string; // jsonb 
     author_list: Map<string, number>;
 }
-
-export async function processChatbotRequest(
+// This function takes in which option to execute and potential 
+// parameters that are needed for some options,
+// Then it executes the correspondign logic andp performs all necesarry operations
+// Currently operations are contributors listing, stating author work, and file summary
+// Throws errors if an invalid option is provided or if there 
+// are any issues with the database or the OpenAI API
+export async function processAIRequest(
     option: string,
     entity_id: string,
     targetAuthor?: string
@@ -32,24 +37,20 @@ export async function processChatbotRequest(
     if (error || !fileData) {
         throw new Error(`Failed to fetch file from database: ${error?.message || 'File not found'}`);
     }
+    if (option != 'contributors' && option != 'author_work' && option != 'file_summary') {
+        throw new Error("Invalid option provided.");
+    }
     
     const file: FileEntry = {...fileData, author_list: turnJSONToMap(fileData.author_list)};
 
     // 1. Contributors option
     if (option === 'contributors') {
         return listContributors(file);
-    }
-
-    // 2. What has [author] worked on in this file?
-    if (option === 'author_work') {
+    } else if (option === 'author_work') {
         return await authorWork(file, targetAuthor || '');
-    }
-    // 3. Summary of file
-    if (option === 'file_summary') {
+    } else {
         return await fileSummary(file);
     }
-
-    throw new Error("Invalid chatbot option selected.");
 }
 
 function listContributors(file : FileEntry): string {

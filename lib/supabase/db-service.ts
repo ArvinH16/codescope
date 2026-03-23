@@ -46,6 +46,8 @@ export async function saveSummaryToDB(supabase: SupabaseClient, data: SummaryDat
   }
 }
 
+// Takes a Supabase client and a processed repository as a list of GitHubRepoFiles and then 
+// Saves that repository to the database
 export async function saveRepository(supabase: SupabaseClient, repo: GitHubRepoFile[]) {
   const trimmed = repo.map(file => ({
     is_file : file.getIsFile(),
@@ -53,6 +55,7 @@ export async function saveRepository(supabase: SupabaseClient, repo: GitHubRepoF
     path : file.getPath(),
     repo_id : file.getRepoId(),
     author_list : turnMapToJSON(file.getContributionPercentages()),
+    ai_comments: "",
   }))
 
   const { error } = await supabase.from("repos").upsert(

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
+// Returns statistics about the most prominent contributors
 export async function GET(
     request: NextRequest,
     context: { params: Promise<{ owner: string; repo: string }> }

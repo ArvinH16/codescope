@@ -2,6 +2,9 @@ import { GithubService } from "@/lib/github/github-service";
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
+// Returns the repository tree that is stored in the database for a given repository, 
+// which is used to determine if the repository has been processed 
+// and to display the file tree on the frontend
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ owner: string; repo: string }> }

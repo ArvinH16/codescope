@@ -2,7 +2,9 @@ import { GithubService } from "@/lib/github/github-service";
 import { createClient } from "@/utils/supabase/server";
 import { NextRequest, NextResponse } from "next/server";
 
-
+// Returns the repository tree from GitHub for a given repository. 
+// This is used for testing and debugging purposes to compare the 
+// tree from GitHub with the tree stored in the database after processing.
 export async function GET(request: NextRequest, context: { params: Promise<{ owner: string, repo: string }> }){
     const { owner, repo } = await context.params;
     if (!owner || !repo) {
