@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -r \"create table\\\\|CREATE TABLE\" /c/Users/fatpi/OneDrive/Documents/codescope --include=*.sql --include=*.ts --include=*.tsx)"
+      "Bash(grep -r \"create table\\\\|CREATE TABLE\" /c/Users/fatpi/OneDrive/Documents/codescope --include=*.sql --include=*.ts --include=*.tsx)",
+      "Bash(npm install:*)"
     ]
   }
 }

@@ -23,7 +23,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ow
     const githubService = new GithubService(session, owner, repo);
     const blameProcess = new GitBlamesProcess(githubService);
     const processedRepo = await blameProcess.processRepository();
-    saveObjectToFile(`test-results/${owner}-${repo}-processed-repo.json`, processedRepo);
     const error = await saveRepository(supabase, processedRepo);
 
     if (error) {
