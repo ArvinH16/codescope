@@ -90,7 +90,7 @@ export class GithubService {
 
   // Takes a branch and a file path, and returns the blame information for that file as a list of BlameRange objects
   // Throws errors if the git graphQL does not respond properly
-  public async getBlame(branch: string, filePath: string) {
+  public async getBlame(branch: string, filePath: string) : Promise<BlameRange[]> {
     //
     // 2. If it's not a Blob, return null (directories, binaries, submodules, etc.)
     //
