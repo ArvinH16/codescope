@@ -66,6 +66,36 @@ function buildTree(files: FileEntry[]): TreeNode[] {
   return root
 }
 
+// ─── File content dropdown ────────────────────────────────────────────────────
+
+function FileContentDropdown({
+  content,
+  loading,
+  depth,
+}: {
+  content: string | null
+  loading: boolean
+  depth: number
+}) {
+  return (
+    <div
+      className="mx-2 mb-1 rounded border border-slate-700 bg-slate-950/80"
+      style={{ marginLeft: `${depth * 16 + 8}px` }}
+    >
+      {loading ? (
+        <div className="flex items-center gap-2 px-3 py-3 text-slate-400">
+          <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+          <span className="text-xs">Loading file content…</span>
+        </div>
+      ) : (
+        <pre className="text-xs text-slate-300 p-3 overflow-x-auto max-h-64 whitespace-pre-wrap break-all leading-relaxed">
+          {content ?? "No content available."}
+        </pre>
+      )}
+    </div>
+  )
+}
+
 // ─── Tree row ─────────────────────────────────────────────────────────────────
 
 function TreeRow({
@@ -74,23 +104,39 @@ function TreeRow({
   expanded,
   onToggle,
   onContextMenu,
+  selectedFile,
+  fileContent,
+  fileContentLoading,
+  onFileClick,
 }: {
   node: TreeNode
   depth: number
   expanded: Set<string>
   onToggle: (path: string) => void
   onContextMenu: (e: React.MouseEvent, path: string, nodeType: "file" | "directory") => void
+  selectedFile: string | null
+  fileContent: string | null
+  fileContentLoading: boolean
+  onFileClick: (path: string) => void
 }) {
   const isOpen = expanded.has(node.path)
+  const isSelected = node.isFile && node.path === selectedFile
 
   return (
     <>
       <div
         className={`flex items-center gap-1.5 px-2 py-[3px] rounded cursor-pointer select-none
           hover:bg-slate-800 transition-colors group
-          ${node.isFile ? "text-slate-300" : "text-slate-200 font-medium"}`}
+          ${node.isFile ? "text-slate-300" : "text-slate-200 font-medium"}
+          ${isSelected ? "bg-slate-800" : ""}`}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
-        onClick={() => !node.isFile && onToggle(node.path)}
+        onClick={() => {
+          if (node.isFile) {
+            onFileClick(node.path)
+          } else {
+            onToggle(node.path)
+          }
+        }}
         onContextMenu={(e) => {
           e.preventDefault()
           onContextMenu(e, node.path, node.isFile ? "file" : "directory")
@@ -102,14 +148,27 @@ function TreeRow({
           />
         )}
         {node.isFile ? (
-          <FileIcon className="w-4 h-4 text-slate-500 flex-shrink-0" />
+          <FileIcon className={`w-4 h-4 flex-shrink-0 ${isSelected ? "text-cyan-400" : "text-slate-500"}`} />
         ) : isOpen ? (
           <FolderOpen className="w-4 h-4 text-blue-400 flex-shrink-0" />
         ) : (
           <Folder className="w-4 h-4 text-blue-400 flex-shrink-0" />
         )}
         <span className="text-sm truncate">{node.name}</span>
+        {node.isFile && (
+          <ChevronRight
+            className={`w-3 h-3 text-slate-600 flex-shrink-0 ml-auto transition-transform ${isSelected ? "rotate-90" : ""}`}
+          />
+        )}
       </div>
+
+      {isSelected && (
+        <FileContentDropdown
+          content={fileContent}
+          loading={fileContentLoading}
+          depth={depth + 1}
+        />
+      )}
 
       {!node.isFile && isOpen &&
         node.children.map((child) => (
@@ -120,6 +179,10 @@ function TreeRow({
             expanded={expanded}
             onToggle={onToggle}
             onContextMenu={onContextMenu}
+            selectedFile={selectedFile}
+            fileContent={fileContent}
+            fileContentLoading={fileContentLoading}
+            onFileClick={onFileClick}
           />
         ))}
     </>
@@ -143,6 +206,9 @@ export function GitTree({ owner, repo, onAiResult, onProcessedChange, refreshKey
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [fileContent, setFileContent] = useState<string | null>(null)
+  const [fileContentLoading, setFileContentLoading] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -181,6 +247,32 @@ export function GitTree({ owner, repo, onAiResult, onProcessedChange, refreshKey
       setContextMenu({ x: e.clientX, y: e.clientY, filePath: path, nodeType })
     },
     []
+  )
+
+  const handleFileClick = useCallback(
+    async (path: string) => {
+      // Toggle off if same file clicked again
+      if (selectedFile === path) {
+        setSelectedFile(null)
+        setFileContent(null)
+        return
+      }
+      setSelectedFile(path)
+      setFileContent(null)
+      setFileContentLoading(true)
+      try {
+        const res = await fetch(
+          `/api/repos/${owner}/${repo}/file-content?path=${encodeURIComponent(path)}`
+        )
+        const json = await res.json()
+        setFileContent(res.ok ? (json.content ?? "") : `Error: ${json.error ?? "Failed to load"}`)
+      } catch (err: any) {
+        setFileContent(`Error: ${err.message ?? "Network error"}`)
+      } finally {
+        setFileContentLoading(false)
+      }
+    },
+    [owner, repo, selectedFile]
   )
 
   const handleOptionSelect = useCallback(
@@ -259,7 +351,7 @@ export function GitTree({ owner, repo, onAiResult, onProcessedChange, refreshKey
         </CardHeader>
         <CardContent className="pt-0">
           <p className="text-xs text-slate-500 mb-3">
-            Click directories to expand · Right-click files or folders for options
+            Click directories to expand · Left-click files to view content · Right-click files or folders for options
           </p>
           <div className="font-mono text-sm">
             {tree.map((node) => (
@@ -270,6 +362,10 @@ export function GitTree({ owner, repo, onAiResult, onProcessedChange, refreshKey
                 expanded={expanded}
                 onToggle={toggleExpand}
                 onContextMenu={handleContextMenu}
+                selectedFile={selectedFile}
+                fileContent={fileContent}
+                fileContentLoading={fileContentLoading}
+                onFileClick={handleFileClick}
               />
             ))}
           </div>
