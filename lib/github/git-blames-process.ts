@@ -1,6 +1,7 @@
 import { BlameRange, GitNode } from "@/utils/types/github";
 import { GithubService } from "./github-service";
 import { GitHubRepoFile } from "./github-repo-file";
+import { saveObjectToFile } from "@/utils/json/json-helper";
 // TODO: Figure out a way to work around github API limiting the number of tree entries to 100k
 // Generally attempt to solve large repos
 
@@ -15,10 +16,15 @@ export class GitBlamesProcess {
     }
 
     // Processes the repository associated with the github service 
+    // Saves the processed repository, github tree, and repo ID to JSON files in test-results for testing purposes
     // Returns a list of GitHubRepoFiles that represent the processed repository
     public async processRepository(): Promise<GitHubRepoFile[]> {
         this.gitId = await this.githubService.getRepoId();
+        saveObjectToFile(`test-results/git-id/${this.githubService.getOwner()}-${this.githubService.getRepo()}-gitID.json`, 
+                         this.gitId);
         const tree = await this.githubService.getMainBranch();
+        saveObjectToFile(`test-results/github-tree/${this.githubService.getOwner()}-${this.githubService.getRepo()}-github-tree.json`,
+                         tree);
         let processedRepo : GitHubRepoFile[] = []; 
         let children : GitHubRepoFile[] = []; 
         const isImmediateChild = new RegExp(`^[^/]+$`);
@@ -48,6 +54,8 @@ export class GitBlamesProcess {
             false,
             totalLines);
         processedRepo.push(repoFile);
+        saveObjectToFile(`test-results/processed-repo/${this.githubService.getOwner()}-${this.githubService.getRepo()}-processed-repo.json`, 
+                         processedRepo);
         return processedRepo;
     }
 

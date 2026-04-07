@@ -1,6 +1,6 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { GitHubRepoFile } from '../github/github-repo-file';
-import { saveObjectToFile, turnMapToJSON } from '@/utils/json/json-helper';
+import { turnMapToJSON } from '@/utils/json/json-helper';
 
 // Defines the data structure we need to save
 type SummaryData = {
