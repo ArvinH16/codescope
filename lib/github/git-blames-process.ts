@@ -2,6 +2,7 @@ import { BlameRange, GitNode } from "@/utils/types/github";
 import { GithubService } from "./github-service";
 import { GitHubRepoFile } from "./github-repo-file";
 import { saveObjectToFile } from "@/utils/json/json-helper";
+import { FILE_CONTEXT_OPTIONS } from "@/components/file-context-menu";
 // TODO: Figure out a way to work around github API limiting the number of tree entries to 100k
 // Generally attempt to solve large repos
 
@@ -9,10 +10,14 @@ import { saveObjectToFile } from "@/utils/json/json-helper";
 export class GitBlamesProcess {
     private githubService: GithubService;
     private gitId: string;
+    private gitAPICalls : Map<string, any[]>
+    private FILE_CONTENT_INDEX = 1;
+    private BLAMES_INDEX = 0;
 
     constructor(githubService: GithubService) {
         this.githubService = githubService;
         this.gitId = "";
+        this.gitAPICalls = new Map();
     }
 
     // Processes the repository associated with the github service 
@@ -20,11 +25,8 @@ export class GitBlamesProcess {
     // Returns a list of GitHubRepoFiles that represent the processed repository
     public async processRepository(): Promise<GitHubRepoFile[]> {
         this.gitId = await this.githubService.getRepoId();
-        saveObjectToFile(`test-results/git-id/${this.githubService.getOwner()}-${this.githubService.getRepo()}-gitID.json`, 
-                         this.gitId);
         const tree = await this.githubService.getMainBranch();
-        saveObjectToFile(`test-results/github-tree/${this.githubService.getOwner()}-${this.githubService.getRepo()}-github-tree.json`,
-                         tree);
+        await this.constructGitAPICalls(tree);
         let processedRepo : GitHubRepoFile[] = []; 
         let children : GitHubRepoFile[] = []; 
         const isImmediateChild = new RegExp(`^[^/]+$`);
@@ -59,6 +61,17 @@ export class GitBlamesProcess {
         return processedRepo;
     }
 
+    private constructGitAPICalls(tree : GitNode[]) {
+        for (let i = 0; i < tree.length; i++) {
+            const node = tree[i];
+            const path = node.path;
+            const blames = this.githubService.getBlame("main", path);
+            const fileContent = this.githubService.getFileContent("main", path);
+            const blamesFileContentTuple = [blames, fileContent];
+            this.gitAPICalls.set(path, blamesFileContentTuple);
+        }
+    }
+
     // The helper method that processes the repository recursively
     // Takes the remaining unprocessed part of the tree as a list of Gitnodes
     // And the list of already processed GitHubRepoFiles, then continues to process the tree
@@ -70,22 +83,39 @@ export class GitBlamesProcess {
         if (!file) {
             return null;
         } else if (file.type === "blob") {
-            const blames = await this.githubService.getBlame("main", file.path);
-            const fileContent = await this.githubService.getFileContent("main", file.path);
-            const decoded = Buffer.from(fileContent.content, "base64").toString("utf8");
-            const {blamedFile, authorContributions, totalLines} = await this.produceBlame(decoded, blames);
-            const repoFile: GitHubRepoFile = new GitHubRepoFile(
+            const fileContentBlames = this.gitAPICalls.get(file.path);
+            if (!fileContentBlames) {
+                const repoFile : GitHubRepoFile = new GitHubRepoFile(
                 this.githubService.getRepo(),
                 this.githubService.getOwner(),
                 this.gitId,
                 file.path,
-                blamedFile,
-                authorContributions,
-                true,
-                totalLines);
-                
-            processedRepo.push(repoFile);
-            return repoFile;
+                "",
+                new Map(),
+                false,
+                0);
+
+                processedRepo.push(repoFile);
+                return repoFile;
+
+            } else {
+                const fileContent = await fileContentBlames[this.FILE_CONTENT_INDEX];
+                const blames = await fileContentBlames[this.BLAMES_INDEX];
+                const decoded = Buffer.from(fileContent.content, "base64").toString("utf8");
+                const {blamedFile, authorContributions, totalLines} = await this.produceBlame(decoded, blames);
+                const repoFile: GitHubRepoFile = new GitHubRepoFile(
+                    this.githubService.getRepo(),
+                    this.githubService.getOwner(),
+                    this.gitId,
+                    file.path,
+                    blamedFile,
+                    authorContributions,
+                    true,
+                    totalLines);
+                    
+                processedRepo.push(repoFile);
+                return repoFile;
+            }
         // If it is not a blob it's a tree
         } else {
             let path = file.path;

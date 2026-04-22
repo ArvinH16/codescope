@@ -17,6 +17,7 @@ import {
   Activity,
   ArrowLeft,
   Loader2,
+  AlertCircle,
 } from "lucide-react"
 import { CommitTimeline } from "@/components/commit-timeline"
 import { ContributorStats } from "@/components/contributor-stats"
@@ -34,6 +35,8 @@ export default function DashboardPage() {
   const [data, setData] = useState(null)
   const [isProcessed, setIsProcessed] = useState(false)
   const [gitTreeRefreshKey, setGitTreeRefreshKey] = useState(0)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processError, setProcessError] = useState(false)
 
   // AI output panel state
   const [aiEntries, setAiEntries] = useState<{ label: string; text: string }[]>([])
@@ -107,12 +110,23 @@ export default function DashboardPage() {
   ]
 
   const processRepo = async () => {
-    const res = await fetch(`/api/repos/${owner}/${repo}/process-repo`, {
-      method: "POST",
-      credentials: "include",
-    })
-    if (res.ok) {
-      setGitTreeRefreshKey((k) => k + 1)
+    setIsProcessing(true)
+    setProcessError(false)
+    try {
+      const res = await fetch(`/api/repos/${owner}/${repo}/process-repo`, {
+        method: "POST",
+        credentials: "include",
+      })
+      if (res.ok) {
+        setGitTreeRefreshKey((k) => k + 1)
+        router.refresh()
+      } else {
+        setProcessError(true)
+      }
+    } catch {
+      setProcessError(true)
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -208,11 +222,16 @@ export default function DashboardPage() {
           >
             <Button
               onClick={processRepo}
-              className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-              disableOnClick
-              disabledText="Processing..."
+              disabled={isProcessing}
+              className={`w-full ${processError ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700" : "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"}`}
             >
-              {isProcessed ? "Update Repository" : "Process Repository"}
+              {isProcessing ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+              ) : processError ? (
+                <><AlertCircle className="w-4 h-4" /> Error — Try Again</>
+              ) : (
+                isProcessed ? "Update Repository" : "Process Repository"
+              )}
             </Button>
 
             {/* AI Output Panel */}

@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { createClient } from '@/utils/supabase/server';
 import { turnJSONToMap } from '@/utils/json/json-helper';
+import { GithubService } from '@/lib/github/github-service';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -12,8 +13,9 @@ export interface FileEntry {
     entity_id: string;
     path: string;
     repo_id: string;
-    file_content: string; // jsonb 
+    file_content: string; // jsonb
     author_list: Map<string, number>;
+    ai_comments: string;
 }
 // This function takes in which option to execute and potential 
 // parameters that are needed for some options,
@@ -24,12 +26,12 @@ export interface FileEntry {
 export async function processAIRequest(
     option: string,
     entity_id: string,
+    githubService: GithubService,
     targetAuthor?: string
 ): Promise<string> {
-    // Fetch the file entry from the Supabase database
     const supabase = await createClient();
     const { data: fileData, error } = await supabase
-        .from('repos') // Replace 'files' with your actual table name if different
+        .from('repos')
         .select('*')
         .eq('entity_id', entity_id)
         .single();
@@ -40,16 +42,21 @@ export async function processAIRequest(
     if (option != 'contributors' && option != 'author_work' && option != 'file_summary') {
         throw new Error("Invalid option provided.");
     }
-    
+
     const file: FileEntry = {...fileData, author_list: turnJSONToMap(fileData.author_list)};
 
-    // 1. Contributors option
     if (option === 'contributors') {
         return listContributors(file);
-    } else if (option === 'author_work') {
-        return await authorWork(file, targetAuthor || '');
+    }
+
+    const commits = await githubService.lastWeekCommits();
+    const mostRecentCommit = commits[0]?.commit?.message?.split('\n')[0] ?? 'unknown';
+    const isoDate = new Date().toISOString();
+
+    if (option === 'author_work') {
+        return await authorWork(file, targetAuthor || '', isoDate, mostRecentCommit);
     } else {
-        return await fileSummary(file);
+        return await fileSummary(file, isoDate, mostRecentCommit);
     }
 }
 
@@ -62,7 +69,7 @@ function listContributors(file : FileEntry): string {
     }
 }
 
-async function authorWork(file: FileEntry, targetAuthor: string): Promise<string> {
+async function authorWork(file: FileEntry, targetAuthor: string, isoDate: string, mostRecentCommit: string): Promise<string> {
     if (!targetAuthor) {
         throw new Error("Target author is required for this option.");
     }
@@ -71,7 +78,11 @@ async function authorWork(file: FileEntry, targetAuthor: string): Promise<string
         return `Author ${targetAuthor} has not contributed to this file.`;
     }
 
-    const prompt = `You are an expert Senior Developer and Repository Architect. I am providing you with every line of code in this file. Note that at the start of each line, there is a blame entry indicating the author.
+    const priorContext = file.ai_comments
+        ? `PREVIOUS AI COMMENTS FOR THIS FILE:\n${file.ai_comments}\n\n`
+        : '';
+
+    const prompt = `${priorContext}You are an expert Senior Developer and Repository Architect. I am providing you with every line of code in this file. Note that at the start of each line, there is a blame entry indicating the author.
 
     YOUR TASK:
     Analyze the provided code snippets and categorize this contributor's role in this specific file.
@@ -93,14 +104,15 @@ async function authorWork(file: FileEntry, targetAuthor: string): Promise<string
                 ],
                 temperature: 0.4,
             });
-            return completion.choices[0]?.message?.content || "No response generated.";
+            const response = completion.choices[0]?.message?.content || "No response generated.";
+            return `${isoDate}\nMost-recent commit ${mostRecentCommit}\n${response}`;
         } catch (error: any) {
             console.error("OpenAI API Error:", error);
             throw new Error(`Failed to generate response: ${error.message}`);
         }
 }
 
-async function fileSummary(file: FileEntry): Promise<string> {
+async function fileSummary(file: FileEntry, isoDate: string, mostRecentCommit: string): Promise<string> {
     let fullBlameDataArray = '';
 
         if (typeof file.file_content === 'string') {
@@ -109,7 +121,11 @@ async function fileSummary(file: FileEntry): Promise<string> {
             fullBlameDataArray = JSON.stringify(file.file_content, null, 2);
         }
 
-        const prompt = `You are an expert software architect. I am providing you with the complete git blame history for the file located at: ${file.path}.
+        const priorContext = file.ai_comments
+            ? `PREVIOUS AI COMMENTS FOR THIS FILE:\n${file.ai_comments}\n\n`
+            : '';
+
+        const prompt = `${priorContext}You are an expert software architect. I am providing you with the complete git blame history for the file located at: ${file.path}.
 
 YOUR TASK:
 Analyze the logic, code patterns, and the evolution of the authors in this dataset. In three concise sentences, provide a technical summary of exactly what this file's primary architectural responsibility is.
@@ -126,9 +142,10 @@ ${fullBlameDataArray}`;
                 ],
                 temperature: 0.4,
             });
-            return completion.choices[0]?.message?.content || "No response generated.";
+            const response = completion.choices[0]?.message?.content || "No response generated.";
+            return `${isoDate}\nMost-recent commit ${mostRecentCommit}\n${response}`;
         } catch (error: any) {
             console.error("OpenAI API Error:", error);
             throw new Error(`Failed to generate summary: ${error.message}`);
-        }   
+        }
 }

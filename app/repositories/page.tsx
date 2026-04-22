@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { GitBranch, Search, Star, GitFork, Clock, LogOut, TrendingUp } from "lucide-react"
+import { GitBranch, Search, Star, GitFork, Clock } from "lucide-react"
 import SignOutButton from '@/components/ui/sign-out-button'
 import { useEffect } from "react"
 import { getStableGradient } from "@/utils/frontend/gradient-colors"

@@ -2,31 +2,28 @@ import { describe, it, expect } from 'vitest'
 import { GithubService } from '@/lib/github/github-service'
 import { Polly } from "@pollyjs/core";
 import FetchAdapter from "@pollyjs/adapter-fetch";
+import FSPersister from "@pollyjs/persister-fs";
 import { GitBlamesProcess } from '@/lib/github/git-blames-process';
-Polly.register(FetchAdapter);
+import path from "path";
 
-const MOCK_REPO_ID = 1296269;
+Polly.register(FetchAdapter);
+Polly.register(FSPersister);
+
 
 describe("GitHubService integration test with PollyJS", () => {
   it("fetches repository data and saves to database", async () => {
     const polly = new Polly("github-service-integration-test", {
       adapters: ["fetch"],
-      mode: "passthrough",
+      persister: "fs",
+      persisterOptions: {
+        fs: {
+          recordingsDir: path.resolve(__dirname, "__recordings__"),
+        },
+      },
+      // Use "record" on first run to hit the real API and save fixtures,
+      // then switch to "replay" to use saved recordings.
+      mode: "record",
     });
-
-    const { server } = polly;
-
-    server
-      .get("https://api.github.com/repos/octocat/Hello-World")
-      .intercept((_req, res) => {
-        res.status(200).json({ id: MOCK_REPO_ID, name: "Hello-World", full_name: "octocat/Hello-World" });
-      });
-
-    server
-      .get("https://api.github.com/repos/octocat/Hello-World/git/trees/main")
-      .intercept((_req, res) => {
-        res.status(200).json({ tree: [] });
-      });
 
     try {
       const session = {

@@ -38,7 +38,7 @@ export async function POST(
   // Look up the entity_id for this path in the repos table
   const { data: row, error: lookupError } = await supabase
     .from("repos")
-    .select("entity_id")
+    .select("entity_id, ai_comments")
     .eq("repo_id", repoId)
     .eq("path", path)
     .limit(1)
@@ -55,8 +55,16 @@ export async function POST(
     const result = await processAIRequest(
       option,
       row.entity_id,
+      githubService,
       targetAuthor
     );
+
+    const existing = row.ai_comments ? row.ai_comments + "\n\n---\n\n" : "";
+    await supabase
+      .from("repos")
+      .update({ ai_comments: existing + result })
+      .eq("entity_id", row.entity_id);
+
     return NextResponse.json({ result });
   } catch (err: any) {
     console.error("[analyze] processChatbotRequest error:", err);
